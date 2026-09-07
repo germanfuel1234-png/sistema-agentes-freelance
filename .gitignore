@@ -1,0 +1,40 @@
+# Environment
+.env
+.env.local
+*.pyc
+__pycache__/
+*.egg-info/
+.Python
+build/
+dist/
+venv/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+logs/
+*.log
+
+# Database/Sheets
+*.db
+credentials.json
+token.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Temp
+temp/
+tmp/
+*.tmp

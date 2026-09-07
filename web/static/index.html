@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema Agentes Freelance</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🤖 Sistema de Agentes — Freelance Desarrollo Web</h1>
+            <p>Dashboard de control para outreach y presupuestos</p>
+        </header>
+
+        <main>
+            <!-- Barra de estado -->
+            <section class="status-bar">
+                <div class="status-item">
+                    <span class="label">Leads totales:</span>
+                    <span class="value" id="total-leads">-</span>
+                </div>
+                <div class="status-item">
+                    <span class="label">Pendientes envío:</span>
+                    <span class="value" id="pending-leads">-</span>
+                </div>
+                <div class="status-item">
+                    <span class="label">Estado:</span>
+                    <span class="value" id="app-status">Cargando...</span>
+                </div>
+            </section>
+
+            <!-- Agentes -->
+            <section class="agents-grid">
+                
+                <!-- Agent 0: Web Study -->
+                <div class="agent-card agent-0">
+                    <div class="card-header">
+                        <h2>🔍 Agent 0: Estudio de Web</h2>
+                        <p class="description">Lee germanrodriguez.ar y actualiza precios</p>
+                    </div>
+                    <div class="card-body">
+                        <button id="btn-agent-0" class="btn btn-primary" onclick="runAgent('agent_0')">
+                            Estudiar Web Ahora
+                        </button>
+                    </div>
+                    <div id="result-agent-0" class="result-area"></div>
+                </div>
+
+                <!-- Agent 1: Search Leads -->
+                <div class="agent-card agent-1">
+                    <div class="card-header">
+                        <h2>🔎 Agent 1: Buscador de Leads</h2>
+                        <p class="description">Encuentra agencias/freelancers sin developer</p>
+                    </div>
+                    <div class="card-body">
+                        <label for="agent1-country">País:</label>
+                        <input type="text" id="agent1-country" value="Argentina" placeholder="Argentina">
+                        
+                        <label for="agent1-limit">Límite de leads:</label>
+                        <input type="number" id="agent1-limit" value="10" min="1" max="50">
+                        
+                        <button id="btn-agent-1" class="btn btn-primary" onclick="runAgent('agent_1')">
+                            Buscar Leads
+                        </button>
+                    </div>
+                    <div id="result-agent-1" class="result-area"></div>
+                </div>
+
+                <!-- Agent 2: Send Emails -->
+                <div class="agent-card agent-2">
+                    <div class="card-header">
+                        <h2>✉️ Agent 2: Redactor de Mails</h2>
+                        <p class="description">Prepara mails y espera tu aprobación</p>
+                    </div>
+                    <div class="card-body">
+                        <label for="agent2-limit">Cantidad de mails:</label>
+                        <input type="number" id="agent2-limit" value="5" min="1" max="20">
+                        
+                        <button id="btn-agent-2" class="btn btn-primary" onclick="runAgent('agent_2')">
+                            Preparar Mails
+                        </button>
+                    </div>
+                    <div id="result-agent-2" class="result-area"></div>
+                </div>
+
+                <!-- Agent 3: Budget Builder -->
+                <div class="agent-card agent-3">
+                    <div class="card-header">
+                        <h2>💰 Agent 3: Armador de Presupuestos</h2>
+                        <p class="description">Genera cotizaciones personalizadas</p>
+                    </div>
+                    <div class="card-body">
+                        <label for="agent3-client">Cliente:</label>
+                        <input type="text" id="agent3-client" placeholder="Nombre del cliente">
+                        
+                        <label for="agent3-project">Proyecto:</label>
+                        <textarea id="agent3-project" placeholder="Descripción del proyecto" rows="3"></textarea>
+                        
+                        <button id="btn-agent-3" class="btn btn-primary" onclick="runAgent('agent_3')">
+                            Armar Presupuesto
+                        </button>
+                    </div>
+                    <div id="result-agent-3" class="result-area"></div>
+                </div>
+
+            </section>
+
+            <!-- Tabla de Leads -->
+            <section class="leads-section">
+                <h2>📋 Leads Actuales</h2>
+                <div id="leads-table" class="table-container">
+                    <p>Cargando leads...</p>
+                </div>
+            </section>
+
+        </main>
+
+        <footer>
+            <p>Sistema Agentes Freelance v0.1.0 | Todos los cambios requieren tu aprobación 🔒</p>
+        </footer>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
