@@ -76,9 +76,10 @@ class GeminiService:
             - Ser corto (3-4 párrafos máximo)
             - No prometer precios
             - Terminar con invitación a conversar sin presión
-            - Firma: Germán Rodríguez, germanrodriguez.ar
+            - Despedida: "Saludos, Germán Rodríguez"
             
-            Devuelve SOLO el body del mail, sin asunto.
+            ⚠️  IMPORTANTE: No incluyas firma detallada - la firma se agregará automáticamente
+            Devuelve SOLO el body del mail sin firma profesional, el sistema la agrega automáticamente.
             """
             
             response = self.client.generate_content(prompt)
@@ -92,19 +93,13 @@ class GeminiService:
     
     def _generate_with_template(self, lead_name, business_name, industry,
                                specific_note, template) -> str:
-        """Fallback: genera desde template."""
+        """
+        Fallback: genera desde template.
         
-        # Firma profesional
-        signature = """
----
-Germán Rodríguez
-DESARROLLO WEB
-Landing Pages · E-Commerce · Apps
-rodriguezg.dev@gmail.com
-
-germanrodriguez.ar
-Zona Oeste · Buenos Aires, Argentina
-Backend & Automatización · Docente"""
+        ⚠️  IMPORTANTE: NO incluye firma aquí
+        La firma se agrega automáticamente en GmailService.send_email()
+        (igual que cuando redactas un mail en Gmail manualmente)
+        """
         
         if template == "pymes":
             return f"""Hola {lead_name},
@@ -118,7 +113,7 @@ Trabajo con negocios como el tuyo para darles una web que convierte. Si te inter
 Te dejo mi portafolio: https://germanrodriguez.ar/
 
 Saludos,
-Germán Rodríguez{signature}"""
+Germán Rodríguez"""
         
         else:  # marketing
             return f"""Hola {lead_name},
@@ -132,7 +127,7 @@ Te dejo mi portafolio: https://germanrodriguez.ar/
 Si en algún momento necesitan un developer confiable, me encantaría colaborar.
 
 Saludos,
-Germán Rodríguez{signature}"""
+Germán Rodríguez"""
     
     def generate_budget_proposal(self, client_name: str, 
                                 project_description: str,

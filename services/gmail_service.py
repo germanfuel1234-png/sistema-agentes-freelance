@@ -18,10 +18,14 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 from core.models import Email
+from core.constants import EMAIL_SIGNATURE
 
 logger = logging.getLogger(__name__)
 
-SCOPES = ["https://www.googleapis.com/auth/gmail.send"]
+SCOPES = [
+    "https://www.googleapis.com/auth/gmail.send",
+    "https://www.googleapis.com/auth/gmail.readonly"
+]
 
 
 class GmailService:
@@ -95,6 +99,7 @@ class GmailService:
     def send_email(self, email: Email) -> Optional[str]:
         """
         Envía un email.
+        AUTOMÁTICAMENTE agrega la firma del usuario.
         
         Args:
             email: Objeto Email con to, subject, body
@@ -103,8 +108,12 @@ class GmailService:
             message_id si tuvo éxito, None si falló
         """
         try:
+            # IMPORTANTE: Agregar firma automáticamente
+            # Igual que cuando redactas un email en Gmail manualmente
+            body_with_signature = self._add_signature_to_body(email.body)
+            
             # Construye mensaje MIME
-            message = MIMEText(email.body, "html" if email.html_body else "plain")
+            message = MIMEText(body_with_signature, "html" if email.html_body else "plain")
             message["To"] = email.to
             message["Subject"] = email.subject
             
@@ -122,6 +131,7 @@ class GmailService:
             
             message_id = result.get("id")
             logger.info(f"✅ Mail enviado a {email.to} (ID: {message_id})")
+            logger.info(f"   Incluida: Firma automática del usuario")
             return message_id
         
         except HttpError as e:
@@ -139,3 +149,41 @@ class GmailService:
         except Exception as e:
             logger.error(f"❌ Error obteniendo perfil: {e}")
             return None
+    
+    def get_user_signature(self) -> Optional[str]:
+        """
+        Obtiene la firma del usuario desde Gmail Settings.
+        Si no tiene firma configurada, retorna None.
+        """
+        try:
+            # Obtiene la configuración de envío
+            send_as = self.service.users().settings().sendAs().get(
+                userId="me",
+                sendAsEmail="me"
+            ).execute()
+            
+            # La firma se guarda en el campo 'signature'
+            signature = send_as.get("signature")
+            if signature:
+                logger.info("✅ Firma de Gmail obtenida")
+                return signature
+            else:
+                logger.debug("ℹ️  Usuario no tiene firma configurada en Gmail")
+                return None
+        
+        except Exception as e:
+            logger.debug(f"ℹ️  No se pudo obtener firma de Gmail: {e}")
+            return None
+    
+    def _add_signature_to_body(self, body: str) -> str:
+        """
+        Agrega la firma al body del email.
+        Intenta obtener la firma de Gmail, si no existe usa la firma por defecto.
+        """
+        # Intenta obtener firma de Gmail
+        gmail_signature = self.get_user_signature()
+        if gmail_signature:
+            return f"{body}\n\n{gmail_signature}"
+        
+        # Si no hay firma en Gmail, usa la firma por defecto
+        return f"{body}\n\n{EMAIL_SIGNATURE}"
