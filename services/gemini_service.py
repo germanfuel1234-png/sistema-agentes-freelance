@@ -93,6 +93,19 @@ class GeminiService:
     def _generate_with_template(self, lead_name, business_name, industry,
                                specific_note, template) -> str:
         """Fallback: genera desde template."""
+        
+        # Firma profesional
+        signature = """
+---
+Germán Rodríguez
+DESARROLLO WEB
+Landing Pages · E-Commerce · Apps
+rodriguezg.dev@gmail.com
+
+germanrodriguez.ar
+Zona Oeste · Buenos Aires, Argentina
+Backend & Automatización · Docente"""
+        
         if template == "pymes":
             return f"""Hola {lead_name},
 
@@ -105,9 +118,7 @@ Trabajo con negocios como el tuyo para darles una web que convierte. Si te inter
 Te dejo mi portafolio: https://germanrodriguez.ar/
 
 Saludos,
-Germán Rodríguez
-Desarrollador Web Freelance
-germanrodriguez.ar | WhatsApp: +54 11 3623-9969"""
+Germán Rodríguez{signature}"""
         
         else:  # marketing
             return f"""Hola {lead_name},
@@ -121,9 +132,7 @@ Te dejo mi portafolio: https://germanrodriguez.ar/
 Si en algún momento necesitan un developer confiable, me encantaría colaborar.
 
 Saludos,
-Germán Rodríguez
-Desarrollador Web Freelance
-germanrodriguez.ar | WhatsApp: +54 11 3623-9969"""
+Germán Rodríguez{signature}"""
     
     def generate_budget_proposal(self, client_name: str, 
                                 project_description: str,

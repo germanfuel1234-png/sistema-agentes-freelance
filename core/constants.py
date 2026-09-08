@@ -5,6 +5,19 @@ Constantes y configuraciones compartidas entre agentes.
 # Email Templates
 EMAIL_TEMPLATE_SUBJECT = "Developer freelance"
 
+# Firma profesional
+EMAIL_SIGNATURE = """
+---
+Germán Rodríguez
+DESARROLLO WEB
+Landing Pages · E-Commerce · Apps
+rodriguezg.dev@gmail.com
+
+germanrodriguez.ar
+Zona Oeste · Buenos Aires, Argentina
+Backend & Automatización · Docente
+"""
+
 EMAIL_TEMPLATE_BODY = """Hola {contact_name},
 
 Soy Germán Rodríguez, desarrollador web freelance.
@@ -19,7 +32,7 @@ Si en algún momento tenés un desarrollo que necesiten resolver, me encantaría
 
 ¡Saludos!
 Germán
-"""
+""" + EMAIL_SIGNATURE
 
 # Lead Search
 EXCLUDED_COMPANIES = [
