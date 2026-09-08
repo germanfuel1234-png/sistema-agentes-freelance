@@ -63,23 +63,27 @@ class GeminiService:
         """Genera con Gemini API (cuando esté disponible)."""
         try:
             prompt = f"""
-            Eres Germán Rodríguez, desarrollador web freelance especializado en {industry}.
+            Eres Germán Rodríguez, desarrollador web freelance.
             
-            Genera un mail corto y personal para {lead_name} de {business_name}.
+            Genera un email simple y directo para {lead_name}.
             
-            Detalles específicos: {specific_note or 'Sin detalles extra'}
+            El email DEBE seguir este formato exacto:
             
-            Template: {template} ({'para dueños de PyMEs' if template == 'pymes' else 'para agencias de marketing'})
+            Hola {{nombre}},
             
-            El mail debe:
-            - Mencionar algo específico del negocio
-            - Ser corto (3-4 párrafos máximo)
-            - No prometer precios
-            - Terminar con invitación a conversar sin presión
-            - Despedida: "Saludos, Germán Rodríguez"
+            Soy Germán Rodríguez, desarrollador web freelance. Trabajo con agencias y freelancers de marketing armando las webs, landings y sistemas
             
-            ⚠️  IMPORTANTE: No incluyas firma detallada - la firma se agregará automáticamente
-            Devuelve SOLO el body del mail sin firma profesional, el sistema la agrega automáticamente.
+            Te comparto mi página web:
+            https://germanrodriguez.ar/
+            
+            Si en algún momento tenés un desarrollo que necesiten resolver, me encantaría ser esa opción.
+            
+            Saludos,
+            Germán Rodríguez
+            
+            NO incluyas firma detallada - la firma se agregará automáticamente.
+            Personaliza solo con el nombre de {lead_name}.
+            Devuelve SOLO el body del mail.
             """
             
             response = self.client.generate_content(prompt)
@@ -101,30 +105,15 @@ class GeminiService:
         (igual que cuando redactas un mail en Gmail manualmente)
         """
         
-        if template == "pymes":
-            return f"""Hola {lead_name},
+        # Mismo formato para todos los leads - simple y directo
+        return f"""Hola {lead_name},
 
-Estuve viendo {business_name} y me pareció {specific_note or "que tienen un buen posicionamiento"}.
+Soy Germán Rodríguez, desarrollador web freelance. Trabajo con agencias y freelancers de marketing armando las webs, landings y sistemas
 
-Soy Germán Rodríguez, desarrollador web especializado en {industry}. He notado que {'no tienen presencia web propia' if not specific_note else 'su web podría mejorar mucho'}. En 2025, eso significa perder clientes potenciales que se van a la competencia que sí aparece bien en Google.
+Te comparto mi página web:
+https://germanrodriguez.ar/
 
-Trabajo con negocios como el tuyo para darles una web que convierte. Si te interesa, puedo mandarte en 5 minutos una idea concreta de cómo se vería y qué costaría. Sin compromiso.
-
-Te dejo mi portafolio: https://germanrodriguez.ar/
-
-Saludos,
-Germán Rodríguez"""
-        
-        else:  # marketing
-            return f"""Hola {lead_name},
-
-Soy Germán Rodríguez, desarrollador web freelance. Trabajo con agencias y freelancers de marketing armando las webs, landings y sistemas que ustedes les prometen a sus clientes.
-
-Vi que en {business_name} entregan proyectos web de calidad, y me gustaría ser esa opción de developer "de bolsillo" para cuando necesiten resolver algo rápido sin sobrecargar el equipo.
-
-Te dejo mi portafolio: https://germanrodriguez.ar/
-
-Si en algún momento necesitan un developer confiable, me encantaría colaborar.
+Si en algún momento tenés un desarrollo que necesiten resolver, me encantaría ser esa opción.
 
 Saludos,
 Germán Rodríguez"""
