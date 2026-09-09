@@ -120,7 +120,9 @@ def _pretty_domain(domain):
 _GENERIC_NAMES = {"agencia", "agencia de", "marketing", "marketing digital",
                   "agencia de marketing", "agencia de marketing digital",
                   "coagencia", "coagencia de marketing", "agencia digital",
-                  "disenador", "diseñador", "home", "portada", "ar"}
+                  "disenador", "diseñador", "home", "portada", "ar",
+                  "inicio", "index", "contacto", "contactanos", "contáctanos",
+                  "nosotros", "bienvenidos", "bienvenido"}
 def _pais_de_query(q):
     ql = q.lower()
     if "mexico" in ql or "méxico" in ql:
