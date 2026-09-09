@@ -45,7 +45,7 @@ def test_signature_auto_addition():
     # Crear objeto Email
     email = Email(
         to="test@example.com",
-        subject="🚀 Developer Freelance",
+        subject="Developer freelance",
         body=email_body
     )
     

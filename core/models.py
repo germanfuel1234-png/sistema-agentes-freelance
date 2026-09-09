@@ -72,20 +72,36 @@ class Lead:
         return self.send_status == SendStatus.PENDING
     
     def to_sheet_row(self) -> List:
-        """Convierte a fila para escribir en Google Sheets."""
+        """Convierte a fila para escribir en Google Sheets.
+
+        Orden real de columnas en la pestaña leads_tracking (A a L):
+        A: Fecha envio | B: Negocio/Agencia | C: Track (PyME/Marketing) |
+        D: Rubro | E: Ciudad | F: Contacto | G: Mail o IG | H: Asunto usado |
+        I: Respondio (Si/No) | J: Fecha follow-up 1 | K: Fecha follow-up 2 |
+        L: Resultado
+
+        La columna M (Enviado?) NO se escribe nunca: es una formula viva en
+        la planilla que se calcula sola a partir de la columna A.
+        """
+        respondio = ""
+        if self.send_status == SendStatus.REPLIED:
+            respondio = "Sí"
+        elif self.send_status in (SendStatus.SENT, SendStatus.BOUNCED):
+            respondio = "No"
+
         return [
-            self.business_name or "",
-            self.contact_name or "",
-            self.track.value,
-            self.industry or "",
-            self.city or "",
-            self.country or "Argentina",
-            self.email or "",
-            self.phone or "",
-            self.send_date.isoformat() if self.send_date else "",
-            self.send_status.value,
-            self.subject_used or "",
-            self.result or "",
+            self.send_date.strftime("%d/%m/%Y") if self.send_date else "",  # A: Fecha envio
+            self.business_name or "",                                       # B: Negocio/Agencia
+            self.track.value,                                               # C: Track
+            self.industry or "",                                            # D: Rubro
+            self.city or "",                                                # E: Ciudad
+            self.contact_name or "",                                        # F: Contacto
+            self.email or "",                                               # G: Mail o IG
+            self.subject_used or "",                                        # H: Asunto usado
+            respondio,                                                      # I: Respondio (Si/No)
+            "",                                                             # J: Fecha follow-up 1
+            "",                                                             # K: Fecha follow-up 2
+            self.result or "",                                              # L: Resultado
         ]
 
 
@@ -118,11 +134,11 @@ class Price:
     estimated_days: int = 0
     
     def to_sheet_row(self) -> List:
+        """Orden real de la pestaña precios_base: Servicio | Precio base (ARS) | Notas."""
         return [
             self.service,
             self.base_price_ars,
             self.description,
-            self.estimated_days,
         ]
 
 

@@ -6,12 +6,16 @@ Agrega automáticamente a Google Sheets
 """
 import logging
 from dataclasses import dataclass
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from services.advanced_search_service import AdvancedSearchService
 from core.models import Lead, TrackType
 from agents.base_agent import BaseAgent
 from core.sheets_client import SheetsClient
+from core.base_enricher import BaseEnricher, NoopEnricher
+from core.fallback_enricher import FallbackEnricher
+from core.hunter_client import HunterEnricher
+from config.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +27,8 @@ class AdvancedSearchResult:
     sources_searched: List[str]
     total_unique: int
     duplicates_removed: int
+    filtered_missing_email: int = 0
+    filtered_existing_email: int = 0
 
 
 class Agent1BAdvancedSearch(BaseAgent):
@@ -36,10 +42,37 @@ class Agent1BAdvancedSearch(BaseAgent):
     Agrega automáticamente a Sheets (sin aprobación)
     """
     
-    def __init__(self, sheets_client: SheetsClient):
+    def __init__(self, sheets_client: SheetsClient, enricher: Optional[BaseEnricher] = None):
         super().__init__(name="agent_1b_advanced_search")
         self.search_service = AdvancedSearchService()
         self.sheets = sheets_client
+        if enricher is not None:
+            self.enricher = enricher
+        else:
+            self.enricher = self._build_default_enricher_chain()
+
+    @staticmethod
+    def _build_default_enricher_chain() -> BaseEnricher:
+        """Construye cadena de enriquecimiento por prioridad de crédito/calidad."""
+        providers: List[BaseEnricher] = []
+
+        if settings.hunter_api_key:
+            providers.append(
+                HunterEnricher(
+                    api_key=settings.hunter_api_key,
+                    endpoint=settings.hunter_endpoint,
+                )
+            )
+
+        if not providers:
+            logger.info("ℹ️ Sin proveedores de enriquecimiento configurados. Usando NoopEnricher")
+            return NoopEnricher()
+
+        if len(providers) == 1:
+            return providers[0]
+
+        logger.info("🔗 FallbackEnricher activo con %s proveedor(es)", len(providers))
+        return FallbackEnricher(providers)
     
     async def execute(self) -> Tuple[AdvancedSearchResult, bool]:
         """
@@ -49,7 +82,7 @@ class Agent1BAdvancedSearch(BaseAgent):
             (AdvancedSearchResult, requires_approval=False)
             No requiere aprobación - se agrega automáticamente a Sheets
         """
-        logger.info("🚀 Agent 1B: Iniciando búsqueda avanzada multi-fuente")
+        logger.info("🚀 Agent 1B: MODO ESTRICTO (1 lead LinkedIn marketing, sin equipo tech, score mínimo)")
         
         try:
             # 1. Buscar en LinkedIn
@@ -59,52 +92,62 @@ class Agent1BAdvancedSearch(BaseAgent):
                 region="latam",
                 limit=15
             )
-            linkedin_results += self.search_service.search_linkedin_professionals(
-                keywords="agencia marketing, publicidad digital",
-                region="spain",
-                limit=10
+
+            # 2. Seleccionar SOLO 1 lead de marketing, priorizando sin señales de equipo tech
+            linkedin_results = self.search_service.select_best_linkedin_marketing_leads(
+                linkedin_results,
+                limit=1,
             )
-            
-            # 2. Buscar PyMEs
-            logger.info("🏢 Buscando PyMEs...")
-            pymes_results = self.search_service.search_pymes_directory(
-                industry="marketing",
-                region="latam",
-                limit=15
-            )
-            pymes_results += self.search_service.search_pymes_directory(
-                industry="marketing",
-                region="spain",
-                limit=10
-            )
-            
-            # 3. Buscar en Instagram
-            logger.info("📸 Buscando en Instagram...")
-            instagram_results = self.search_service.search_instagram_marketing_profiles(
-                hashtags=["#agenciamarketing", "#marketingdigital", "#communitymanager"],
-                region="latam",
-                limit=15
-            )
-            instagram_results += self.search_service.search_instagram_marketing_profiles(
-                hashtags=["#agenciamarketing", "#marketingagency", "#socialmedia"],
-                region="spain",
-                limit=10
-            )
-            
-            # 4. Consolidar y eliminar duplicados
+
+            # 2.1 Enriquecer candidatos antes de exigir email final
+            enriched_linkedin = []
+            for raw_lead in linkedin_results:
+                candidate = self.search_service.enrich_lead_with_website_domain(
+                    raw_lead,
+                    region="latam",
+                )
+                enriched = await self.enricher.enrich_lead(candidate)
+                enriched_linkedin.append(enriched)
+            linkedin_results = enriched_linkedin
+
+            if not linkedin_results:
+                logger.info("ℹ️ Modo estricto: no se agregó ningún lead porque ninguno cumplió todos los criterios")
+
+            # 3. Consolidar y eliminar duplicados (solo LinkedIn en esta modalidad)
             consolidated = self.search_service.consolidate_leads(
                 linkedin_results,
-                pymes_results,
-                instagram_results
+                [],
+                []
             )
             
-            # 5. Convertir a modelo Lead
+            # 4. Convertir a modelo Lead
             leads_to_add = []
             for consolidated_lead in consolidated:
                 lead = self.search_service.to_lead_model(consolidated_lead)
                 leads_to_add.append(lead)
+
+            # 4.1 Filtro duro final: email válido + no duplicado por email
+            existing_emails = {
+                l.email.strip().lower()
+                for l in self.sheets.get_all_leads()
+                if l.email and "@" in l.email
+            }
+
+            filtered_missing_email = sum(
+                1 for lead in leads_to_add
+                if not (lead.email and "@" in lead.email)
+            )
+            filtered_existing_email = sum(
+                1 for lead in leads_to_add
+                if lead.email and lead.email.strip().lower() in existing_emails
+            )
+
+            leads_to_add = [
+                lead for lead in leads_to_add
+                if lead.email and lead.email.strip().lower() not in existing_emails
+            ]
             
-            # 6. Agregar a Sheets AUTOMÁTICAMENTE
+            # 5. Agregar a Sheets AUTOMÁTICAMENTE
             logger.info(f"💾 Agregando {len(leads_to_add)} leads a Sheets...")
             added_count = 0
             for lead in leads_to_add:
@@ -112,23 +155,27 @@ class Agent1BAdvancedSearch(BaseAgent):
                     self.sheets.add_lead(lead)
                     added_count += 1
                 except Exception as e:
-                    logger.warning(f"⚠️ No se pudo agregar lead {lead.contact_email}: {e}")
+                    logger.warning(f"⚠️ No se pudo agregar lead {lead.email}: {e}")
             
             result = AdvancedSearchResult(
                 leads_found=leads_to_add,
-                sources_searched=["LinkedIn", "PyMEs", "Instagram"],
+                sources_searched=["LinkedIn"],
                 total_unique=len(leads_to_add),
-                duplicates_removed=len(linkedin_results) + len(pymes_results) + len(instagram_results) - len(leads_to_add)
+                duplicates_removed=filtered_existing_email,
+                filtered_missing_email=filtered_missing_email,
+                filtered_existing_email=filtered_existing_email,
             )
             
             logger.info(f"""
 ✅ Agent 1B Completado:
    • LinkedIn: {len(linkedin_results)} perfiles
-   • PyMEs: {len(pymes_results)} empresas
-   • Instagram: {len(instagram_results)} perfiles
    • Total ÚNICO agregado a Sheets: {added_count}
-   • Duplicados removidos: {result.duplicates_removed}
+    • Descartados por email faltante: {result.filtered_missing_email}
+    • Descartados por duplicado: {result.filtered_existing_email}
             """)
+
+            if added_count == 0:
+                logger.info("ℹ️ No se agregó un nuevo lead: todos los candidatos ya existían o no tenían email utilizable")
             
             # NO requiere aprobación - ya está en Sheets
             return (result, False)

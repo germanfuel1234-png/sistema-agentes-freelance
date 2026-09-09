@@ -5,6 +5,7 @@ y verificar que se registre como "Enviado" en Sheets
 import asyncio
 import sys
 import os
+from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -44,20 +45,28 @@ async def main():
         print("\n📧 Paso 2: Buscando lead SIN email enviado...")
         target_lead = None
         for lead in leads:
-            # Si el lead no tiene estado "Enviado", es candidato
-            if lead.send_status != SendStatus.SENT.value:
+            # Debe estar pendiente y tener un email de verdad (no un
+            # handle de Instagram ni un link a formulario de contacto,
+            # que también terminan en la columna "Mail o IG")
+            has_valid_email = bool(
+                lead.email
+                and "@" in lead.email
+                and "IG @" not in lead.email
+                and "Formulario" not in lead.email
+            )
+            if lead.send_status != SendStatus.SENT and has_valid_email:
                 target_lead = lead
                 break
-        
+
         if not target_lead:
-            print("❌ Todos los leads ya recibieron email")
+            print("❌ No hay leads pendientes con email válido")
             print("\n📊 Leads actuales:")
             for i, lead in enumerate(leads[:10], 1):
-                print(f"{i}. {lead.contact_name} ({lead.contact_email}) - {lead.send_status}")
+                print(f"{i}. {lead.contact_name} ({lead.email}) - {lead.send_status.value}")
             return
         
         print(f"✅ Lead seleccionado: {target_lead.contact_name}")
-        print(f"   📧 Email: {target_lead.contact_email}")
+        print(f"   📧 Email: {target_lead.email}")
         print(f"   🏢 Empresa: {target_lead.business_name}")
         print(f"   📍 Rubro: {target_lead.industry}")
         
@@ -75,34 +84,44 @@ async def main():
         
         # PASO 4: Crear objeto Email
         email = Email(
-            to=target_lead.contact_email,
-            subject="🚀 Developer Freelance - Desarrollo Web",
+            to=target_lead.email,
+            subject="Developer freelance",
             body=email_body
         )
         
         # PASO 5: Enviar por Gmail
         print("\n🚀 Paso 4: Enviando email por Gmail...")
         message_id = gmail.send_email(email)
+        if not message_id:
+            print("❌ No se obtuvo Message ID de Gmail. El envío pudo haber fallado.")
+            return
         print(f"✅ Email enviado exitosamente!")
         print(f"   📨 Message ID: {message_id}")
         
         # PASO 6: Registrar en Sheets como "Enviado"
         print("\n💾 Paso 5: Registrando en Google Sheets como 'Enviado'...")
-        sheets.update_send_status(
-            lead_email=target_lead.contact_email,
+        if not target_lead.id:
+            print("❌ El lead no tiene row_id para actualizar en Sheets")
+            return
+
+        updated = sheets.update_send_status(
+            row_id=int(target_lead.id),
             status=SendStatus.SENT,
-            message_id=message_id
+            subject=email.subject,
         )
-        print("✅ Estado actualizado en Sheets")
+        if updated:
+            print("✅ Estado actualizado en Sheets")
+        else:
+            print("⚠️  Email enviado, pero no se pudo actualizar el estado en Sheets")
         
         # PASO 7: Mostrar resumen
         print("\n" + "=" * 70)
         print("📊 RESUMEN DEL ENVÍO:")
         print("=" * 70)
         print(f"✅ Destinatario: {target_lead.contact_name}")
-        print(f"✅ Email: {target_lead.contact_email}")
+        print(f"✅ Email: {target_lead.email}")
         print(f"✅ Empresa: {target_lead.business_name}")
-        print(f"✅ Asunto: 🚀 Developer Freelance - Desarrollo Web")
+        print(f"✅ Asunto: {email.subject}")
         print(f"✅ Estado en Sheets: ENVIADO")
         print(f"✅ Gmail Message ID: {message_id}")
         print("\n🎉 ¡Email enviado y registrado correctamente!")

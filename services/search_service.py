@@ -6,6 +6,7 @@ from typing import Optional, List
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+from urllib.parse import urlparse, parse_qsl, urlencode, urlunparse
 
 from core.models import Lead, TrackType
 from core.constants import EXCLUDED_COMPANIES, MARKETING_KEYWORDS
@@ -122,9 +123,14 @@ class SearchService:
             
             logger.info(f"✅ {len(leads)} leads encontrados con API")
             return leads
-        
+        except requests.HTTPError as e:
+            self._log_custom_search_http_error(e, context="search_marketing_agencies")
+            return []
+        except requests.RequestException as e:
+            logger.warning(f"⚠️  Error de red con Custom Search: {e}")
+            return []
         except Exception as e:
-            logger.warning(f"⚠️  Error con Custom Search: {e}")
+            logger.warning(f"⚠️  Error inesperado con Custom Search: {e}")
             return []
     
     def _search_pymes_with_api(self, industry: str, city: str, 
@@ -163,10 +169,88 @@ class SearchService:
                     leads.append(lead)
             
             return leads
-        
-        except Exception as e:
-            logger.warning(f"⚠️  Error buscando PyMEs: {e}")
+        except requests.HTTPError as e:
+            self._log_custom_search_http_error(e, context="search_pymes")
             return []
+        except requests.RequestException as e:
+            logger.warning(f"⚠️  Error de red buscando PyMEs con Custom Search: {e}")
+            return []
+        except Exception as e:
+            logger.warning(f"⚠️  Error inesperado buscando PyMEs: {e}")
+            return []
+
+    @staticmethod
+    def _sanitize_url(url: str) -> str:
+        """Oculta credenciales en query params para logs."""
+        if not url:
+            return ""
+
+        parsed = urlparse(url)
+        params = parse_qsl(parsed.query, keep_blank_values=True)
+        safe_params = []
+        for key, value in params:
+            if key.lower() in {"key", "api_key", "apikey", "token"}:
+                masked = f"***{value[-4:]}" if value else "***"
+                safe_params.append((key, masked))
+            else:
+                safe_params.append((key, value))
+
+        safe_query = urlencode(safe_params)
+        return urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, safe_query, parsed.fragment))
+
+    @staticmethod
+    def _extract_google_error_reason(response: requests.Response) -> tuple[str, str]:
+        """Extrae reason/message estándar de Google APIs."""
+        reason = ""
+        message = ""
+        try:
+            payload = response.json()
+            error_obj = payload.get("error", {}) if isinstance(payload, dict) else {}
+            message = str(error_obj.get("message", ""))
+            errors = error_obj.get("errors", [])
+            if isinstance(errors, list) and errors:
+                first = errors[0] if isinstance(errors[0], dict) else {}
+                reason = str(first.get("reason", ""))
+        except ValueError:
+            message = response.text[:200]
+
+        return reason, message
+
+    @staticmethod
+    def _google_cse_hint_for_reason(reason: str) -> str:
+        hints = {
+            "keyInvalid": "API key inválida: revisa GOOGLE_CUSTOM_SEARCH_API_KEY.",
+            "API_KEY_INVALID": "API key inválida: revisa GOOGLE_CUSTOM_SEARCH_API_KEY.",
+            "accessNotConfigured": "Habilita Custom Search API en Google Cloud para este proyecto.",
+            "SERVICE_DISABLED": "Habilita Custom Search API en Google Cloud para este proyecto.",
+            "dailyLimitExceeded": "Cuota diaria agotada.",
+            "quotaExceeded": "Cuota del proyecto agotada.",
+            "userRateLimitExceeded": "Rate limit excedido.",
+            "ipRefererBlocked": "Restricciones de API key (IP/referrer) bloquean esta llamada.",
+            "forbidden": "Revisa billing, API habilitada y restricciones de la API key.",
+            "billingNotActive": "Billing no activo en Google Cloud.",
+        }
+        return hints.get(reason, "")
+
+    def _log_custom_search_http_error(self, error: requests.HTTPError, context: str) -> None:
+        response = error.response
+        if response is None:
+            logger.warning("⚠️  Error HTTP en Google Custom Search (%s) sin respuesta asociada", context)
+            return
+
+        safe_url = self._sanitize_url(response.url)
+        reason, message = self._extract_google_error_reason(response)
+        hint = self._google_cse_hint_for_reason(reason)
+
+        logger.warning(
+            "⚠️  Google Custom Search %s (%s) | reason=%s | message=%s | url=%s%s",
+            response.status_code,
+            context,
+            reason or "unknown",
+            message or "sin mensaje",
+            safe_url,
+            f" | hint={hint}" if hint else "",
+        )
     
     def _generate_mock_leads(self, country: str, limit: int) -> List[Lead]:
         """Genera leads mock para demo."""

@@ -5,8 +5,9 @@ Usa OAuth2 con flujo de escritorio.
 import logging
 import os
 import base64
+import html
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
@@ -24,7 +25,8 @@ logger = logging.getLogger(__name__)
 
 SCOPES = [
     "https://www.googleapis.com/auth/gmail.send",
-    "https://www.googleapis.com/auth/gmail.readonly"
+    "https://www.googleapis.com/auth/gmail.readonly",
+    "https://www.googleapis.com/auth/gmail.settings.basic",
 ]
 
 
@@ -110,10 +112,10 @@ class GmailService:
         try:
             # IMPORTANTE: Agregar firma automáticamente
             # Igual que cuando redactas un email en Gmail manualmente
-            body_with_signature = self._add_signature_to_body(email.body)
+            body_with_signature, subtype = self._add_signature_to_body(email.body)
             
             # Construye mensaje MIME
-            message = MIMEText(body_with_signature, "html" if email.html_body else "plain")
+            message = MIMEText(body_with_signature, subtype)
             message["To"] = email.to
             message["Subject"] = email.subject
             
@@ -156,34 +158,41 @@ class GmailService:
         Si no tiene firma configurada, retorna None.
         """
         try:
-            # Obtiene la configuración de envío
-            send_as = self.service.users().settings().sendAs().get(
-                userId="me",
-                sendAsEmail="me"
-            ).execute()
+            # Lista aliases de envío y prioriza la cuenta principal
+            response = self.service.users().settings().sendAs().list(userId="me").execute()
+            send_as_items = response.get("sendAs", [])
             
-            # La firma se guarda en el campo 'signature'
-            signature = send_as.get("signature")
-            if signature:
-                logger.info("✅ Firma de Gmail obtenida")
-                return signature
-            else:
-                logger.debug("ℹ️  Usuario no tiene firma configurada en Gmail")
-                return None
+            # Firma de cuenta principal primero
+            send_as_items.sort(key=lambda item: not item.get("isPrimary", False))
+            
+            for item in send_as_items:
+                signature = item.get("signature")
+                if signature:
+                    logger.info("✅ Firma de Gmail obtenida desde configuración")
+                    return signature
+            
+            logger.debug("ℹ️  Usuario no tiene firma configurada en Gmail")
+            return None
         
         except Exception as e:
             logger.debug(f"ℹ️  No se pudo obtener firma de Gmail: {e}")
             return None
     
-    def _add_signature_to_body(self, body: str) -> str:
+    def _add_signature_to_body(self, body: str) -> Tuple[str, str]:
         """
         Agrega la firma al body del email.
         Intenta obtener la firma de Gmail, si no existe usa la firma por defecto.
+        
+        Returns:
+            Tuple (body_con_firma, tipo_mime)
         """
         # Intenta obtener firma de Gmail
         gmail_signature = self.get_user_signature()
         if gmail_signature:
-            return f"{body}\n\n{gmail_signature}"
+            # La firma de Gmail suele ser HTML (incluye imagen/logo y links).
+            # Convertimos el cuerpo de texto a HTML para que renderice correctamente.
+            body_html = html.escape(body).replace("\n", "<br>")
+            return f"{body_html}<br><br>{gmail_signature}", "html"
         
         # Si no hay firma en Gmail, usa la firma por defecto
-        return f"{body}\n\n{EMAIL_SIGNATURE}"
+        return f"{body}\n\n{EMAIL_SIGNATURE}", "plain"

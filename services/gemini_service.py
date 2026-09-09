@@ -106,7 +106,11 @@ class GeminiService:
         """
         
         # Mismo formato para todos los leads - simple y directo
-        return f"""Hola {lead_name},
+        # Personalización con fallback: nombre de contacto -> nombre de
+        # empresa -> "Argentina" (nunca dejar "Hola None," o "Hola ,")
+        recipient_name = lead_name or business_name or "Argentina"
+
+        return f"""Hola {recipient_name},
 
 Soy Germán Rodríguez, desarrollador web freelance. Trabajo con agencias y freelancers de marketing armando las webs, landings y sistemas
 

@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     
     # Google Sheets
     google_sheet_id: str = "1hjwAUrKaCu53McleYaJZj99b65IoKHBVqIZ96qfvF1I"
-    google_sheet_leads_range: str = "leads_tracking!A1:L1000"
+    google_sheet_leads_range: str = "'leads_tracking.csv'!A1:K1000"
     google_sheet_prices_range: str = "precios_base!A1:E100"
     google_sheet_budgets_range: str = "presupuestos!A1:H100"
     
@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     # Search APIs (opcional)
     google_custom_search_api_key: Optional[str] = None
     google_custom_search_engine_id: Optional[str] = None
+    salesql_api_key: Optional[str] = None
+    salesql_endpoint: str = "https://api.salesql.com/v1/enrich"
+    hunter_api_key: Optional[str] = None
+    hunter_endpoint: str = "https://api.hunter.io/v2/email-finder"
     
     # App
     debug: bool = True

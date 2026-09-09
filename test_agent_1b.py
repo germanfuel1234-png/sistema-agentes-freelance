@@ -36,15 +36,20 @@ async def main():
         print("=" * 70)
         print(f"✅ Total leads encontrados: {result.total_unique}")
         print(f"📱 Fuentes: {', '.join(result.sources_searched)}")
-        print(f"🔄 Duplicados removidos: {result.duplicates_removed}")
-        print(f"💾 Agregados a Sheets: Sí (automático)")
+        print(f"✉️ Descartados por email faltante: {result.filtered_missing_email}")
+        print(f"🔄 Duplicados removidos: {result.filtered_existing_email}")
+        print(f"💾 Agregados a Sheets: {'Sí (automático)' if result.total_unique > 0 else 'No (sin candidatos nuevos)'}")
         
         print("\n📋 LEADS AGREGADOS:")
-        for i, lead in enumerate(result.leads_found, 1):
-            print(f"\n{i}. {lead.contact_name}")
-            print(f"   📧 {lead.contact_email}")
-            print(f"   🏢 {lead.business_name}")
-            print(f"   📍 {lead.source}")
+        if not result.leads_found:
+            print("   ℹ️ No se encontró un lead nuevo que cumpla filtros estrictos y no esté duplicado.")
+        else:
+            for i, lead in enumerate(result.leads_found, 1):
+                print(f"\n{i}. {lead.contact_name}")
+                print(f"   📧 {lead.email}")
+                print(f"   🏢 {lead.business_name}")
+                print(f"   📍 {lead.source}")
+                print(f"   🔗 Perfil: {lead.linkedin_url or 'No disponible'}")
         
         print("\n" + "=" * 70)
         print("✅ ¡Agent 1B completado exitosamente!")
