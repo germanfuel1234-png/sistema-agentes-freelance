@@ -15,6 +15,7 @@ from core.sheets_client import SheetsClient
 from core.base_enricher import BaseEnricher, NoopEnricher
 from core.fallback_enricher import FallbackEnricher
 from core.hunter_client import HunterEnricher
+from core.salesql_client import SalesQLEnricher
 from config.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -53,8 +54,22 @@ class Agent1BAdvancedSearch(BaseAgent):
 
     @staticmethod
     def _build_default_enricher_chain() -> BaseEnricher:
-        """Construye cadena de enriquecimiento por prioridad de crédito/calidad."""
+        """Construye cadena de enriquecimiento por prioridad de crédito/calidad.
+
+        Orden: SalesQL primero (funciona a partir de la URL de LinkedIn, que
+        es la fuente principal de este agente) y Hunter como respaldo
+        (funciona a partir del dominio de la empresa, útil cuando SalesQL no
+        encuentra nada o el lead no trae LinkedIn).
+        """
         providers: List[BaseEnricher] = []
+
+        if settings.salesql_api_key:
+            providers.append(
+                SalesQLEnricher(
+                    api_key=settings.salesql_api_key,
+                    endpoint=settings.salesql_endpoint,
+                )
+            )
 
         if settings.hunter_api_key:
             providers.append(
