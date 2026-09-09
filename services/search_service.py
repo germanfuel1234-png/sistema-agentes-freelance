@@ -294,9 +294,10 @@ class SearchService:
             if domain:
                 seen_domains.add(domain)
             lead = Lead(
-                business_name=item.get("title", "Unknown").split(" - ")[0].strip(),
+                business_name=self._business_name_from_result(item.get("title", ""), item.get("link", "")),
                 email=email,
                 track=TrackType.MARKETING,
+                industry="Marketing digital",
                 country=country,
                 website=item.get("link") or None,
                 source="DuckDuckGo",
@@ -329,7 +330,7 @@ class SearchService:
             if domain:
                 seen_domains.add(domain)
             lead = Lead(
-                business_name=item.get("title", "Unknown").split(" - ")[0].strip(),
+                business_name=self._business_name_from_result(item.get("title", ""), item.get("link", "")),
                 email=email,
                 industry=industry,
                 city=city,
@@ -345,6 +346,28 @@ class SearchService:
 
         return leads
     
+    _GENERIC_PAGE_TITLES = {
+        "contacto", "contáctanos", "contactanos", "contact", "contact us",
+        "inicio", "home", "nosotros", "bienvenidos", "bienvenido",
+    }
+
+    @classmethod
+    def _business_name_from_result(cls, title: str, link: str) -> str:
+        """Nombre de negocio a partir del resultado de búsqueda.
+
+        Muchos sitios usan como <title> de la página de contacto solo
+        "Contacto" o "Inicio" (no el nombre del negocio). En ese caso el
+        título no sirve, así que se usa el dominio del sitio como nombre
+        (siempre dato real, nunca inventado).
+        """
+        cleaned = (title or "").split(" - ")[0].strip()
+        if cleaned.lower() in cls._GENERIC_PAGE_TITLES or not cleaned:
+            domain = urlparse(link).netloc.lower()
+            if domain.startswith("www."):
+                domain = domain[4:]
+            return domain.split(".")[0].capitalize() if domain else "Unknown"
+        return cleaned
+
     @staticmethod
     def _extract_email(text: str) -> Optional[str]:
         """Extrae email de texto.

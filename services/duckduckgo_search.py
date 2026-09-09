@@ -60,6 +60,14 @@ def search_duckduckgo(query: str, limit: int = 10, session: requests.Session = N
         logger.warning(f"⚠️  DuckDuckGo no respondió para '{query}': {e}")
         return []
 
+    if "anomaly" in resp.text.lower():
+        logger.warning(
+            f"⚠️  DuckDuckGo bloqueó temporalmente la búsqueda '{query}' "
+            "(rate limit por demasiadas búsquedas seguidas). Probar de nuevo "
+            "en unos minutos, no es que no haya resultados."
+        )
+        return []
+
     soup = BeautifulSoup(resp.text, "html.parser")
     results: List[DuckDuckGoResult] = []
 
