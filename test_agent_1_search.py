@@ -27,9 +27,11 @@ async def main():
         engine_id=settings.google_custom_search_engine_id,
     )
 
+    # country acepta un país puntual ("Argentina") o una región completa:
+    # "latam" (Argentina/Chile/Colombia/México/Perú/Uruguay) o "spain"/"espana".
     new_leads, _ = await agent.execute(
         search_type="marketing",
-        country="Argentina",
+        country="latam",
         limit=3,
     )
 

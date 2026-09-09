@@ -89,22 +89,25 @@ class Agent1BAdvancedSearch(BaseAgent):
         logger.info("🔗 FallbackEnricher activo con %s proveedor(es)", len(providers))
         return FallbackEnricher(providers)
     
-    async def execute(self) -> Tuple[AdvancedSearchResult, bool]:
+    async def execute(self, region: str = "latam") -> Tuple[AdvancedSearchResult, bool]:
         """
         Ejecuta búsqueda en todas las fuentes.
-        
+
+        Args:
+            region: "latam" o "spain" - de dónde buscar los perfiles
+
         Retorna:
             (AdvancedSearchResult, requires_approval=False)
             No requiere aprobación - se agrega automáticamente a Sheets
         """
-        logger.info("🚀 Agent 1B: MODO ESTRICTO (1 lead LinkedIn marketing, sin equipo tech, score mínimo)")
-        
+        logger.info(f"🚀 Agent 1B: MODO ESTRICTO (1 lead LinkedIn marketing, sin equipo tech, score mínimo, región={region})")
+
         try:
             # 1. Buscar en LinkedIn
             logger.info("📱 Buscando en LinkedIn...")
             linkedin_results = self.search_service.search_linkedin_professionals(
                 keywords="marketing manager, community manager",
-                region="latam",
+                region=region,
                 limit=15
             )
 
@@ -119,7 +122,7 @@ class Agent1BAdvancedSearch(BaseAgent):
             for raw_lead in linkedin_results:
                 candidate = self.search_service.enrich_lead_with_website_domain(
                     raw_lead,
-                    region="latam",
+                    region=region,
                 )
                 enriched = await self.enricher.enrich_lead(candidate)
                 enriched_linkedin.append(enriched)

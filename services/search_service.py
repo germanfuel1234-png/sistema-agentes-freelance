@@ -27,8 +27,27 @@ def get_session():
 
 class SearchService:
     """Servicio para buscar y verificar leads."""
-    
-    def __init__(self, api_key: Optional[str] = None, 
+
+    # Regiones soportadas además de un país puntual: "latam" busca en varios
+    # países de LatAm a la vez (OR en la query) en vez de uno solo.
+    _REGION_QUERY_HINTS = {
+        "latam": "Argentina OR Chile OR Colombia OR México OR Perú OR Uruguay",
+        "espana": "España",
+        "spain": "España",
+    }
+    _REGION_LABELS = {
+        "latam": "LatAm",
+        "espana": "España",
+        "spain": "España",
+    }
+    # ccTLD -> país real, para no etiquetar todo con la región genérica
+    # cuando se puede saber el país real por el dominio del sitio encontrado.
+    _TLD_TO_COUNTRY = {
+        "ar": "Argentina", "cl": "Chile", "co": "Colombia", "mx": "México",
+        "pe": "Perú", "uy": "Uruguay", "es": "España",
+    }
+
+    def __init__(self, api_key: Optional[str] = None,
                  custom_search_engine_id: Optional[str] = None):
         """
         Args:
@@ -38,16 +57,40 @@ class SearchService:
         self.api_key = api_key
         self.engine_id = custom_search_engine_id
         self.session = get_session()
-    
-    def search_marketing_agencies(self, country: str = "Argentina", 
+
+    @classmethod
+    def _country_query_fragment(cls, country_or_region: str) -> str:
+        """Convierte "latam"/"espana"/"spain" en un OR de países para la
+        query; si es un país puntual (ej. "Argentina") lo deja igual."""
+        return cls._REGION_QUERY_HINTS.get(country_or_region.strip().lower(), country_or_region)
+
+    @classmethod
+    def _region_fallback_label(cls, country_or_region: str) -> str:
+        """Nombre a mostrar en la columna Ciudad/País si no se pudo inferir
+        el país real del lead a partir de su dominio."""
+        return cls._REGION_LABELS.get(country_or_region.strip().lower(), country_or_region)
+
+    @classmethod
+    def _infer_country_from_domain(cls, domain: str, fallback: str) -> str:
+        """Deduce el país real por el ccTLD del sitio (ej. .com.ar ->
+        Argentina). Si no matchea ninguno conocido, usa el fallback (el país
+        puntual pedido, o la etiqueta de región si se buscó por LatAm/España)."""
+        domain = (domain or "").lower()
+        for tld, country in cls._TLD_TO_COUNTRY.items():
+            if domain.endswith(f".{tld}"):
+                return country
+        return fallback
+
+    def search_marketing_agencies(self, country: str = "Argentina",
                                  limit: int = 10) -> List[Lead]:
         """
         Busca agencias de marketing sin developer.
-        
+
         Args:
-            country: País
+            country: País puntual (ej. "Argentina") o región completa
+                     ("latam" o "espana"/"spain")
             limit: Cantidad de resultados
-        
+
         Returns:
             Lista de leads encontrados
         """
@@ -107,8 +150,9 @@ class SearchService:
         """Búsqueda con Google Custom Search API."""
         try:
             leads = []
-            query = f"agencia de marketing digital {country}"
-            
+            query = f"agencia de marketing digital {self._country_query_fragment(country)}"
+            fallback_country = self._region_fallback_label(country)
+
             url = "https://www.googleapis.com/customsearch/v1"
             params = {
                 "q": query,
@@ -116,21 +160,23 @@ class SearchService:
                 "cx": self.engine_id,
                 "num": min(limit, 10),  # Max 10 por query
             }
-            
+
             response = requests.get(url, params=params, timeout=10)
             response.raise_for_status()
-            
+
             data = response.json()
-            
+
             for item in data.get("items", []):
                 # Busca email o contacto
                 email = self._extract_email(item.get("snippet", ""))
-                
+
                 if email:
+                    domain = urlparse(item.get("link", "")).netloc.lower()
                     lead = Lead(
                         business_name=item.get("title", "Unknown"),
                         email=email,
                         track=TrackType.MARKETING,
+                        country=self._infer_country_from_domain(domain, fallback_country),
                         source="Google Custom Search",
                     )
                     leads.append(lead)
@@ -266,48 +312,71 @@ class SearchService:
             f" | hint={hint}" if hint else "",
         )
     
+    # Segmentos reales del target definido en sistema_agentes_freelance.md:
+    # "agencias de marketing, freelancers y community managers ... sin
+    # developer propio". Se rota entre ellos para no traer siempre el mismo
+    # tipo de perfil (antes quedaba fijo en "agencia de marketing digital").
+    _MARKETING_SEGMENTS = [
+        ("Agencia de marketing digital", "agencia de marketing digital {country} contacto email"),
+        ("Freelance de marketing digital", "freelance marketing digital {country} contacto email"),
+        ("Community manager freelance", "community manager freelance {country} contacto email"),
+        ("Diseñador gráfico freelance", "diseñador gráfico freelance {country} contacto email"),
+    ]
+
     def _search_marketing_agencies_duckduckgo(self, country: str, limit: int) -> List[Lead]:
-        """Busca agencias de marketing reales vía DuckDuckGo (sin API key).
-
-        Usa la misma estrategia de búsqueda general (no restringida a un
-        sitio) que se usó para relevar leads a mano: nombre de rubro +
-        país, extrayendo el email de verdad del snippet del resultado.
+        """Busca agencias/freelancers/community managers/diseñadores reales
+        vía DuckDuckGo (sin API key), repartiendo el límite entre los
+        distintos segmentos del target para traer una mezcla real de
+        perfiles en vez de agotar el cupo con el primer segmento.
         """
-        query = f"agencia de marketing digital {country} contacto email"
-        results = search_duckduckgo(query, limit=limit * 3, session=self.session)
-
         leads = []
         seen_domains = set()
         pages_visited = 0
-        for item in results:
-            domain = urlparse(item.get("link", "")).netloc.lower()
-            if domain and domain in seen_domains:
-                continue
-            email = self._extract_email(item.get("snippet", "") + " " + item.get("title", ""))
-            # Los snippets casi nunca traen el email; visitamos la página real
-            # (con un tope para no demorar de más ni golpear muchos sitios).
-            if not email and pages_visited < 15:
-                pages_visited += 1
-                email = find_email_on_page(item.get("link", ""), session=self.session)
-            if not email:
-                continue
-            if domain:
-                seen_domains.add(domain)
-            lead = Lead(
-                business_name=self._business_name_from_result(item.get("title", ""), item.get("link", "")),
-                email=email,
-                track=TrackType.MARKETING,
-                industry="Marketing digital",
-                country=country,
-                website=item.get("link") or None,
-                source="DuckDuckGo",
-            )
-            if self.validate_lead(lead):
-                leads.append(lead)
+        num_segments = len(self._MARKETING_SEGMENTS)
+        per_segment = max(1, -(-limit // num_segments))  # ceil(limit / segmentos)
+        country_fragment = self._country_query_fragment(country)
+        fallback_country = self._region_fallback_label(country)
+
+        for industry_label, query_template in self._MARKETING_SEGMENTS:
             if len(leads) >= limit:
                 break
 
-        return leads
+            segment_target = min(per_segment, limit - len(leads))
+            query = query_template.format(country=country_fragment)
+            results = search_duckduckgo(query, limit=segment_target * 3, session=self.session)
+
+            added_this_segment = 0
+            for item in results:
+                if added_this_segment >= segment_target:
+                    break
+                domain = urlparse(item.get("link", "")).netloc.lower()
+                if domain and domain in seen_domains:
+                    continue
+                email = self._extract_email(item.get("snippet", "") + " " + item.get("title", ""))
+                # Los snippets casi nunca traen el email; visitamos la página
+                # real (con un tope para no demorar de más ni golpear muchos
+                # sitios).
+                if not email and pages_visited < 15:
+                    pages_visited += 1
+                    email = find_email_on_page(item.get("link", ""), session=self.session)
+                if not email:
+                    continue
+                if domain:
+                    seen_domains.add(domain)
+                lead = Lead(
+                    business_name=self._business_name_from_result(item.get("title", ""), item.get("link", "")),
+                    email=email,
+                    track=TrackType.MARKETING,
+                    industry=industry_label,
+                    country=self._infer_country_from_domain(domain, fallback_country),
+                    website=item.get("link") or None,
+                    source="DuckDuckGo",
+                )
+                if self.validate_lead(lead):
+                    leads.append(lead)
+                    added_this_segment += 1
+
+        return leads[:limit]
 
     def _search_pymes_duckduckgo(self, industry: str, city: str, limit: int) -> List[Lead]:
         """Busca PyMEs reales vía DuckDuckGo (sin API key)."""
