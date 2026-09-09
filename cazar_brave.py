@@ -138,9 +138,41 @@ def _pais_de_query(q):
     if "buenos aires" in ql:
         return "Buenos Aires, Argentina"
     return "Argentina"
+_EXCLUDED_DOMAINS = ["sortlist", "clutch.co", "facebook.com", "instagram.com", "linkedin.com", "youtube.com"]
+
+
+def _buscar_multi_motor(q):
+    """Prueba Brave primero; si falla o no trae nada, cae a Bing; si Bing
+    tampoco trae nada, cae a DuckDuckGo. Cada motor tiene su propio
+    rate-limit independiente, así que si uno está bloqueado los otros
+    dos suelen seguir funcionando. Nunca inventa resultados: si los tres
+    fallan, devuelve lista vacía.
+
+    Devuelve (items, motor) donde cada item es (title, link, snippet).
+    """
+    try:
+        brave = brave_links(q)
+    except Exception as e:
+        print("  FAIL Brave: %s" % e)
+        brave = []
+    if brave:
+        return [(t, l, "") for t, l in brave], "Brave"
+
+    from services.bing_search import search_bing
+    bing = search_bing(q, limit=9)
+    if bing:
+        return [(r["title"], r["link"], r["snippet"]) for r in bing], "Bing"
+
+    from services.duckduckgo_search import search_duckduckgo
+    ddg = search_duckduckgo(q, limit=9)
+    if ddg:
+        return [(r["title"], r["link"], r["snippet"]) for r in ddg], "DuckDuckGo"
+
+    return [], None
+
+
 def cazar(limit=2, queries=None):
     import requests
-    from bs4 import BeautifulSoup
     from urllib.parse import urlparse
     from core.models import Lead, TrackType
     from services.search_service import SearchService
@@ -151,20 +183,20 @@ def cazar(limit=2, queries=None):
     for label, q in qs:
         if len(leads) >= limit:
             break
-        print("[BUSCA-BRAVE] " + q)
-        try:
-            results = brave_links(q)
-        except Exception as e:
-            print("  FAIL Brave: %s" % e)
+        print("[BUSCA] " + q)
+        results, motor = _buscar_multi_motor(q)
+        if not motor:
+            print("  -> los 3 motores (Brave/Bing/DuckDuckGo) fallaron o bloquearon, sigo con la próxima query")
+            time.sleep(20)
             continue
-        print("  -> %d links" % len(results))
-        for title, link in results:
+        print("  -> %d links vía %s" % (len(results), motor))
+        for title, link, snippet in results:
             if len(leads) >= limit:
                 break
             domain = urlparse(link).netloc.lower()
-            if not link or domain in seen or any(x in domain for x in ["sortlist", "clutch.co", "facebook.com", "instagram.com", "linkedin.com", "youtube.com"]):
+            if not link or domain in seen or any(x in domain for x in _EXCLUDED_DOMAINS):
                 continue
-            email = svc._extract_email(title)
+            email = svc._extract_email(title + " " + snippet)
             if not email:
                 try:
                     email = find_email_on_page(link, session=requests.Session())
@@ -175,7 +207,7 @@ def cazar(limit=2, queries=None):
             seen.add(domain)
             nombre = _clean_name(title, link)
             pais = _pais_de_query(q)
-            lead = Lead(business_name=nombre, email=email.lower(), track=TrackType.MARKETING, industry="Agencia de marketing digital", city=pais, country="", website=link, source="Brave")
+            lead = Lead(business_name=nombre, email=email.lower(), track=TrackType.MARKETING, industry="Agencia de marketing digital", city=pais, country="", website=link, source=motor)
             if svc.validate_lead(lead):
                 leads.append(lead)
                 print("  [REAL] %s | %s | %s" % (lead.business_name, lead.email, lead.website))
