@@ -8,6 +8,7 @@ __pycache__/
 build/
 dist/
 venv/
+venv312/
 .venv/
 .venv-win/
 ENV/

@@ -13,6 +13,7 @@ from bs4 import BeautifulSoup
 
 from core.models import Lead, TrackType
 from config.settings import settings
+from services.duckduckgo_search import search_duckduckgo
 
 logger = logging.getLogger(__name__)
 
@@ -297,68 +298,46 @@ class AdvancedSearchService:
                         "bio": snippet,
                     })
 
-                logger.info(f"✅ LinkedIn real: {len(results)} perfiles")
+                logger.info(f"✅ LinkedIn real (Google CSE): {len(results)} perfiles")
 
-            # Fallback controlado a mock cuando no hay API o no hubo resultados útiles
+            # Respaldo gratuito (sin API key, sin facturación) cuando Google
+            # no está configurado o no devolvió nada útil. Nunca se inventan
+            # perfiles: si no hay resultados reales, se devuelve lista vacía.
             if not results:
-                logger.warning("⚠️  Sin resultados reales de LinkedIn. Usando fallback mock.")
-                test_leads = [
-                    {
-                        "nombre": "Juan García López",
-                        "email": "juan.garcia@marketingagency.com",
-                        "linkedin": "https://linkedin.com/in/juangarcia",
-                        "empresa": "Marketing Agency Co",
-                        "cargo": "Marketing Manager",
-                        "bio": "Agencia de marketing digital enfocada en growth y performance.",
-                    },
-                    {
-                        "nombre": "María Rodríguez",
-                        "email": "maria.r@agenciadigital.es",
-                        "linkedin": "https://linkedin.com/in/mariar",
-                        "empresa": "Agencia Digital ES",
-                        "cargo": "Founder",
-                        "bio": "Equipo boutique de branding y social media para pymes.",
-                    },
-                    {
-                        "nombre": "Carlos Mendez",
-                        "email": "carlos@socialmedia.mx",
-                        "linkedin": "https://linkedin.com/in/carlosmendez",
-                        "empresa": "Social Media MX",
-                        "cargo": "Director",
-                        "bio": "Agencia con equipo tech interno para desarrollo web y apps.",
-                    },
-                    {
-                        "nombre": "Lucía Fernández",
-                        "email": "lucia@growthatelier.co",
-                        "linkedin": "https://linkedin.com/in/luciafernandez",
-                        "empresa": "Growth Atelier",
-                        "cargo": "Community Manager",
-                        "bio": "Agencia boutique de social media y contenido para marcas B2B.",
-                    },
-                    {
-                        "nombre": "Martín Sosa",
-                        "email": "martin@agenciamarea.com",
-                        "linkedin": "https://linkedin.com/in/martinsosa",
-                        "empresa": "Agencia Marea",
-                        "cargo": "Founder",
-                        "bio": "Agencia de branding y marketing digital para pymes de servicios.",
-                    },
-                    {
-                        "nombre": "Valentina Ruiz",
-                        "email": "valentina@socialloop.mx",
-                        "linkedin": "https://linkedin.com/in/valentinaruiz",
-                        "empresa": "Social Loop",
-                        "cargo": "Marketing Lead",
-                        "bio": "Performance marketing, anuncios y estrategia de contenidos.",
-                    },
-                ]
-                sample_size = min(limit, len(test_leads))
-                results = random.sample(test_leads, k=sample_size)
-                logger.info(f"✅ Fallback mock: {len(results)} perfiles")
-            
+                query = (
+                    f"site:linkedin.com/in {keywords} (marketing OR agencia OR agency) "
+                    f"{region_hint}"
+                )
+                items = search_duckduckgo(query, limit=limit, session=self.session)
+
+                for item in items:
+                    link = item.get("link", "")
+                    if "linkedin.com/in/" not in link:
+                        continue
+
+                    title = item.get("title", "").replace(" | LinkedIn", "").strip()
+                    snippet = item.get("snippet", "")
+                    company = self._extract_company_from_snippet(snippet)
+                    email = self._discover_email_for_profile(title, company)
+                    cargo = snippet.split("·")[0].strip() if snippet else ""
+
+                    results.append({
+                        "nombre": title or "N/A",
+                        "email": email,
+                        "linkedin": link,
+                        "empresa": company,
+                        "cargo": cargo,
+                        "bio": snippet,
+                    })
+
+                logger.info(f"✅ LinkedIn real (DuckDuckGo): {len(results)} perfiles")
+
+            if not results:
+                logger.warning(f"⚠️  Sin resultados reales de LinkedIn para '{keywords}' ({region})")
+
         except Exception as e:
             logger.error(f"❌ Error buscando LinkedIn: {e}")
-        
+
         return results
 
     @staticmethod
