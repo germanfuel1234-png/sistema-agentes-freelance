@@ -2,6 +2,7 @@
 Search Service - Búsqueda de leads vía APIs y scraping.
 """
 import logging
+import time
 from typing import Optional, List
 import requests
 from requests.adapters import HTTPAdapter
@@ -337,9 +338,15 @@ class SearchService:
         country_fragment = self._country_query_fragment(country)
         fallback_country = self._region_fallback_label(country)
 
-        for industry_label, query_template in self._MARKETING_SEGMENTS:
+        for segment_index, (industry_label, query_template) in enumerate(self._MARKETING_SEGMENTS):
             if len(leads) >= limit:
                 break
+
+            if segment_index > 0:
+                # Pausa corta entre segmentos: varias queries seguidas al
+                # toque disparan el rate-limit de DuckDuckGo aunque no sean
+                # muchas (confirmado en vivo - 2 queries seguidas ya alcanzan).
+                time.sleep(4)
 
             segment_target = min(per_segment, limit - len(leads))
             query = query_template.format(country=country_fragment)
