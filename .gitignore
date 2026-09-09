@@ -42,3 +42,8 @@ temp/
 tmp/
 *.tmp
 token_gmail.json
+
+# Salidas generadas por los scripts de caza de leads
+nuevos_leads_para_sheet.csv
+planilla_public.csv
+STOP.loop
