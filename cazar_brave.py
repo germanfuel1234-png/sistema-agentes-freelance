@@ -140,7 +140,18 @@ def _pais_de_query(q):
     if "buenos aires" in ql:
         return "Buenos Aires, Argentina"
     return "Argentina"
-_EXCLUDED_DOMAINS = ["sortlist", "clutch.co", "facebook.com", "instagram.com", "linkedin.com", "youtube.com"]
+_EXCLUDED_DOMAINS = [
+    # Directorios/marketplaces (no son la agencia en sí)
+    "sortlist", "clutch.co",
+    # Redes sociales
+    "facebook.com", "instagram.com", "linkedin.com", "youtube.com",
+    "twitter.com", "x.com", "tiktok.com", "pinterest.com",
+    # Plataformas/referencias globales genéricas que a veces salen como
+    # "ruido" en Bing/DuckDuckGo para queries cortas y no tienen nada que
+    # ver con una agencia/freelancer real (ej: zhihu.com salió una vez
+    # para "community manager freelance Cordoba" sin relación alguna)
+    "wikipedia.org", "rae.es", "zhihu.com", "quora.com", "reddit.com",
+]
 
 
 def _buscar_multi_motor(q):
