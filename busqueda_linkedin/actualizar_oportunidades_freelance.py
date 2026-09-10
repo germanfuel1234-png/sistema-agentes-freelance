@@ -37,6 +37,18 @@ FOOTPRINTS = ["Estamos buscando talento freelance",
               "buscamos perfiles freelance para"]
 SKILLS = ["desarrollo web", "diseno web", "SEO tecnico",
           "analisis de sistemas", "Python", "PHP", "Dart", "Kotlin"]
+# Frase de contratacion directa ("buscamos desarrollador web"), no solo el
+# patron generico de "talento freelance". Se cruza con region, no con SKILLS
+# (no tiene sentido "buscamos desarrollador web" + "Kotlin" como frase).
+FOOTPRINTS_DEV_WEB = ["buscamos desarrollador web freelance",
+                      "necesitamos desarrollador web freelance",
+                      "buscamos desarrollador web"]
+FOOTPRINTS_EN = ["looking for a freelance web developer",
+                 "hiring a freelance web developer",
+                 "seeking a freelance web developer"]
+REGIONES_ES = ["España", "Madrid", "Barcelona", "Argentina", "México",
+               "Colombia", "Chile", "Perú"]
+REGIONES_EN = ["United States", "Europe", "remote", "UK"]
 FREELANCE_SIGNALS = ["freelance", "freelancer", "por proyecto", "por hora",
                      "remoto", "red de talento", "base de datos",
                      "talent pool", "bolsa de talento"]
@@ -91,6 +103,14 @@ def build_queries():
     for fp in FOOTPRINTS:
         qs.append('site:x.com "%s"' % fp)
         qs.append('"%s" (Python OR PHP OR "desarrollo web" OR SEO)' % fp)
+    # "Buscamos desarrollador web" (contratacion directa) por region:
+    # España/LatAm en español, EEUU/Europa/remoto en ingles.
+    for fp in FOOTPRINTS_DEV_WEB:
+        for region in REGIONES_ES:
+            qs.append('site:linkedin.com/posts "%s" "%s"' % (fp, region))
+    for fp in FOOTPRINTS_EN:
+        for region in REGIONES_EN:
+            qs.append('site:linkedin.com/posts "%s" "%s"' % (fp, region))
     return qs
 
 QUERIES = build_queries()

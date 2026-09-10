@@ -13,11 +13,22 @@ Ventana: ultimos 7 dias (aplicar filtro de fecha en cada red).
 "buscamos freelance" ("desarrollo web" OR "SEO" OR Python OR PHP)
 "red de talento freelance" (desarrollo OR SEO OR Python)
 
+-- Contratacion directa de desarrollador web (España / LatAm) --
+"buscamos desarrollador web" (España OR Madrid OR Barcelona OR Argentina OR Mexico OR Colombia OR Chile OR Peru)
+"necesitamos desarrollador web freelance" (España OR Latinoamerica)
+
+-- En ingles (EEUU / Europa / remoto) --
+"looking for a freelance web developer" ("United States" OR Europe OR remote OR UK)
+"hiring a freelance web developer" ("United States" OR Europe OR remote OR UK)
+
 URLs directas (pegar en navegador logueado):
 https://www.linkedin.com/search/results/content/?keywords=%22estamos%20buscando%20talento%20freelance%22
 https://www.linkedin.com/search/results/content/?keywords=%22buscamos%20perfiles%20freelance%20para%22
 https://www.linkedin.com/search/results/content/?keywords=%22red%20de%20talento%20freelance%22
 https://www.linkedin.com/search/results/content/?keywords=%22buscamos%20freelance%22%20%22desarrollo%20web%22
+https://www.linkedin.com/search/results/content/?keywords=%22buscamos%20desarrollador%20web%22
+https://www.linkedin.com/search/results/content/?keywords=%22looking%20for%20a%20freelance%20web%20developer%22
+https://www.linkedin.com/search/results/content/?keywords=%22hiring%20a%20freelance%20web%20developer%22
 
 -- X / TWITTER (logueado) -> busqueda en vivo, ultima semana --
 
