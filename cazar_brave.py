@@ -140,6 +140,24 @@ def _pais_de_query(q):
     if "buenos aires" in ql:
         return "Buenos Aires, Argentina"
     return "Argentina"
+_RELEVANT_KEYWORDS = [
+    "agencia", "marketing", "publicidad", "community", "comunicacion",
+    "comunicación", "branding", "diseño", "diseno", "creativ", "medios",
+    "media", "digital", "freelance", "seo", "redes sociales", "social media",
+]
+
+
+def _es_relevante(title, snippet, domain):
+    """Filtra ruido de buscador (paginas globales sin relacion con marketing,
+    ej. Zhihu, GitHub Copilot) exigiendo al menos una palabra relacionada a
+    marketing/agencias en titulo, snippet o dominio. Mas robusto que una
+    lista de dominios excluidos, que siempre va un paso atras de un dominio
+    nuevo todavia no visto.
+    """
+    blob = ("%s %s %s" % (title, snippet, domain)).lower()
+    return any(k in blob for k in _RELEVANT_KEYWORDS)
+
+
 _EXCLUDED_DOMAINS = [
     # Directorios/marketplaces (no son la agencia en sí)
     "sortlist", "clutch.co",
@@ -151,6 +169,8 @@ _EXCLUDED_DOMAINS = [
     # ver con una agencia/freelancer real (ej: zhihu.com salió una vez
     # para "community manager freelance Cordoba" sin relación alguna)
     "wikipedia.org", "rae.es", "zhihu.com", "quora.com", "reddit.com",
+    "github.com", "stackoverflow.com", "microsoft.com", "google.com",
+    "apple.com", "amazon.com",
 ]
 
 
@@ -208,6 +228,8 @@ def cazar(limit=2, queries=None):
                 break
             domain = urlparse(link).netloc.lower()
             if not link or domain in seen or any(x in domain for x in _EXCLUDED_DOMAINS):
+                continue
+            if not _es_relevante(title, snippet, domain):
                 continue
             email = svc._extract_email(title + " " + snippet)
             if not email:
