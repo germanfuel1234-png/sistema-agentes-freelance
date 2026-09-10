@@ -54,11 +54,30 @@ PORTALES_BLOCK = ["freelancer.com", "freelancer.com.ar", "upwork.com", "workana.
                   "getonbrd.com", "toptal.com", "peopleperhour.com", "guru.com"]
 # Solo se aceptan posteos organicos de estas redes
 REDES_OK = ("linkedin.com", "x.com", "twitter.com")
+# Acortadores oficiales que resuelven a un post real (linkedin.com/posts/...)
+ACORTADORES = ("lnkd.in",)
 
 
 def es_portal(url):
     low = (url or "").lower()
     return any(p in low for p in PORTALES_BLOCK)
+
+
+def resolver_shortlink(url):
+    """Si es un acortador conocido (ej. lnkd.in), sigue el redirect y
+    devuelve la URL final real, sin parametros de tracking (?utm_source=...)
+    para que el dedup por URL funcione aunque dos personas compartan el
+    mismo post con links de tracking distintos. Si no es acortador o
+    falla, devuelve la URL tal cual."""
+    netloc = urlparse(url or "").netloc.lower()
+    if not any(d in netloc for d in ACORTADORES):
+        return url
+    try:
+        r = requests.get(url, headers={"User-Agent": UA}, timeout=10, allow_redirects=True)
+        final = r.url or url
+        return final.split("?")[0]
+    except requests.RequestException:
+        return url
 
 
 def es_red_social(url):
@@ -299,13 +318,19 @@ def _link_formula(url, sep):
     return '=HYPERLINK("%s"%s"%s")' % (url, sep, label)
 
 
+def _url_sin_tracking(url):
+    """Saca ?utm_source=... y similares para que dos links del mismo post
+    (compartidos por gente distinta) se reconozcan como iguales."""
+    return (url or "").split("?")[0]
+
+
 def _extraer_url(celda):
     """Recupera la URL de una celda Enlace (texto plano o formula HYPERLINK)."""
     c = (celda or "").strip()
     if c.startswith("=HYPERLINK"):
         m = re.search(r'=HYPERLINK\("([^"]+)"', c)
-        return m.group(1) if m else ""
-    return c if c.startswith("http") else ""
+        return _url_sin_tracking(m.group(1)) if m else ""
+    return _url_sin_tracking(c) if c.startswith("http") else ""
 
 
 def guardar(results, tab, sheets):
@@ -321,9 +346,10 @@ def guardar(results, tab, sheets):
     sep = _sep_formula(sheets)
     nuevos = []
     for r in results:
-        if r["link"] in urls:
+        link_clave = _url_sin_tracking(r["link"])
+        if link_clave in urls:
             continue
-        urls.add(r["link"])
+        urls.add(link_clave)
         req = r["req"]
         tag = ", ".join(r.get("skills") or [])
         if tag and tag.lower() not in req.lower():
@@ -372,6 +398,7 @@ def main():
             u = u.strip()
             if not u.startswith("http"):
                 continue
+            u = resolver_shortlink(u)
             if es_portal(u):
                 rechazadas.append(u)
                 print("REGLA ESTRICTA - portal de empleo prohibido, NO se agrega: %s" % u)
