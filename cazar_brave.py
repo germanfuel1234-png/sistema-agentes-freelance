@@ -125,6 +125,14 @@ _GENERIC_NAMES = {"agencia", "agencia de", "marketing", "marketing digital",
                   "nosotros", "bienvenidos", "bienvenido"}
 def _pais_de_query(q):
     ql = q.lower()
+    if "madrid" in ql:
+        return "Madrid, España"
+    if "barcelona" in ql:
+        return "Barcelona, España"
+    if "valencia" in ql:
+        return "Valencia, España"
+    if "espana" in ql or "españa" in ql:
+        return "España"
     if "mexico" in ql or "méxico" in ql:
         return "México"
     if "colombia" in ql:
@@ -140,21 +148,54 @@ def _pais_de_query(q):
     if "buenos aires" in ql:
         return "Buenos Aires, Argentina"
     return "Argentina"
+
+# ccTLD -> pais real. Se usa para verificar/corregir el pais de _pais_de_query:
+# el buscador a veces ignora la ciudad/pais pedido en la query y devuelve
+# resultados de otro lado (ej: pedis "Madrid" y te trae un .com.ar).
+_TLD_A_PAIS = {
+    "es": "España", "ar": "Argentina", "mx": "México", "co": "Colombia",
+    "cl": "Chile", "pe": "Perú", "uy": "Uruguay",
+}
+
+
+def _pais_real(domain, pais_de_query):
+    """Prioriza el pais real segun el dominio (mas confiable) sobre el pais
+    que se pidio en la query (el buscador a veces lo ignora, ej. pedis
+    "Madrid" y te trae un resultado .com.ar)."""
+    domain = (domain or "").lower()
+    for tld, pais in _TLD_A_PAIS.items():
+        if domain.endswith("." + tld):
+            if pais.lower() in pais_de_query.lower():
+                return pais_de_query  # coincide, se mantiene el detalle de ciudad
+            return pais  # no coincide: el dominio manda
+    return pais_de_query
 _RELEVANT_KEYWORDS = [
     "agencia", "marketing", "publicidad", "community", "comunicacion",
     "comunicación", "branding", "diseño", "diseno", "creativ", "medios",
     "media", "digital", "freelance", "seo", "redes sociales", "social media",
 ]
+# "agencia" solo no alcanza (agencia de NOTICIAS, de VIAJES, de EMPLEO,
+# TRIBUTARIA no son agencias de marketing). Si aparece alguna de estas,
+# se descarta aunque matchee una palabra de _RELEVANT_KEYWORDS.
+_IRRELEVANT_SIGNALS = [
+    "noticias", "diario", "periodico", "periódico", "agencia de viajes",
+    "agencia de empleo", "agencia tributaria", "gobierno", "ministerio",
+    "universidad", "municipalidad", "ayuntamiento", ".gob.", "wikipedia",
+]
 
 
 def _es_relevante(title, snippet, domain):
     """Filtra ruido de buscador (paginas globales sin relacion con marketing,
-    ej. Zhihu, GitHub Copilot) exigiendo al menos una palabra relacionada a
-    marketing/agencias en titulo, snippet o dominio. Mas robusto que una
-    lista de dominios excluidos, que siempre va un paso atras de un dominio
-    nuevo todavia no visto.
+    ej. Zhihu, GitHub Copilot, agencias de noticias/gobierno) exigiendo al
+    menos una palabra relacionada a marketing/agencias en titulo, snippet o
+    dominio, y descartando señales claras de que NO es una agencia de
+    marketing (agencia de noticias, sitio de gobierno, etc.). Mas robusto
+    que una lista de dominios excluidos, que siempre va un paso atras de un
+    dominio nuevo todavia no visto.
     """
     blob = ("%s %s %s" % (title, snippet, domain)).lower()
+    if any(k in blob for k in _IRRELEVANT_SIGNALS):
+        return False
     return any(k in blob for k in _RELEVANT_KEYWORDS)
 
 
@@ -241,7 +282,7 @@ def cazar(limit=2, queries=None):
                 continue
             seen.add(domain)
             nombre = _clean_name(title, link)
-            pais = _pais_de_query(q)
+            pais = _pais_real(domain, _pais_de_query(q))
             lead = Lead(business_name=nombre, email=email.lower(), track=TrackType.MARKETING, industry="Agencia de marketing digital", city=pais, country="", website=link, source=motor)
             if svc.validate_lead(lead):
                 leads.append(lead)
