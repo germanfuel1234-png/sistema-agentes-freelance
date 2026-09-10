@@ -1,0 +1,37 @@
+================================================================
+CONSULTAS PARA BUSCAR POSEOS ORGANICOS - SOLO LINKEDIN / X
+REGLA ESTRICTA: nada de portales de empleo (Freelancer, Upwork,
+Workana, Fiverr, Computrabajo, Bumeran, Zonajobs, Indeed, etc.)
+Ventana: ultimos 7 dias (aplicar filtro de fecha en cada red).
+================================================================
+
+-- LINKEDIN (logueado) -> Buscar > Publicaciones > Fecha: Ultima semana --
+
+"estamos buscando talento freelance" ("desarrollo web" OR "SEO tecnico" OR Python OR PHP)
+"creando nuestra red de talento freelance" (desarrollo OR SEO OR Python OR PHP)
+"buscamos perfiles freelance para" (web OR SEO OR Python OR PHP OR Dart OR Kotlin)
+"buscamos freelance" ("desarrollo web" OR "SEO" OR Python OR PHP)
+"red de talento freelance" (desarrollo OR SEO OR Python)
+
+URLs directas (pegar en navegador logueado):
+https://www.linkedin.com/search/results/content/?keywords=%22estamos%20buscando%20talento%20freelance%22
+https://www.linkedin.com/search/results/content/?keywords=%22buscamos%20perfiles%20freelance%20para%22
+https://www.linkedin.com/search/results/content/?keywords=%22red%20de%20talento%20freelance%22
+https://www.linkedin.com/search/results/content/?keywords=%22buscamos%20freelance%22%20%22desarrollo%20web%22
+
+-- X / TWITTER (logueado) -> busqueda en vivo, ultima semana --
+
+"estamos buscando talento freelance" ("desarrollo web" OR SEO OR Python OR PHP) since:2026-09-02
+"buscamos perfiles freelance" (Python OR PHP OR Dart OR Kotlin OR SEO) -filter:replies
+"red de talento freelance" -filter:replies
+"buscamos freelance" (SEO OR Python OR "desarrollo web") -filter:replies
+
+URLs directas:
+https://x.com/search?q=%22buscamos%20talento%20freelance%22&f=live
+https://x.com/search?q=%22buscamos%20perfiles%20freelance%22&f=live
+
+-- Descartar siempre --
+- Cualquier URL de: freelancer.com / upwork.com / workana.com / fiverr.com /
+  computrabajo / bumeran / zonajobs / indeed / glassdoor (REGLA ESTRICTA).
+- Ofertas en relacion de dependencia (planta permanente, nomina, etc.).
+- Posteos con mas de 7 dias de antiguedad.
