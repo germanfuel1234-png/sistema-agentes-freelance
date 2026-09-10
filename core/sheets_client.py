@@ -130,6 +130,23 @@ class SheetsClient:
         self._sheet_titles_cache = titles
         return titles
 
+    def add_sheet(self, tab_name: str, headers: Optional[List[str]] = None) -> bool:
+        """Crea una pestaña nueva si todavía no existe, con encabezados
+        opcionales en la fila 1. Si ya existe, no hace nada (no la borra ni
+        la pisa)."""
+        if tab_name in self._get_sheet_titles():
+            return False
+
+        self.service.spreadsheets().batchUpdate(
+            spreadsheetId=self.sheet_id,
+            body={"requests": [{"addSheet": {"properties": {"title": tab_name}}}]},
+        ).execute()
+        self._sheet_titles_cache = None  # invalida cache, la pestaña nueva ya existe
+
+        if headers:
+            self.write_range(f"{self._quote_sheet_name(tab_name)}!A1", [headers], append=False)
+        return True
+
     def _resolve_range_with_existing_sheet(self, range_name: str) -> str:
         """
         Intenta resolver el nombre de pestaña del rango contra tabs existentes.
