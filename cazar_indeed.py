@@ -81,9 +81,22 @@ def buscar_ofertas(query, ciudad, dominio_indeed, limit=15):
     return empresas
 
 
-def _candidatos_dominio(empresa):
+# TLDs esperados segun el pais de Indeed que se consultó. Importante: NO se
+# prueban TLDs de otros países (ej. no se intenta .com.ar para una oferta de
+# México) - eso fue justo lo que causó un falso positivo real ("Grupo
+# Salinas" de Argentina aceptado para una oferta en Ciudad de México).
+_TLDS_POR_INDEED = {
+    "ar.indeed.com": ["com.ar"],
+    "es.indeed.com": ["es"],
+    "mx.indeed.com": ["com.mx", "mx"],
+}
+
+
+def _candidatos_dominio(empresa, dominio_indeed):
     """Genera candidatos de dominio propio a partir del nombre de la
-    empresa - sin usar ningun buscador, solo pedidos HTTP directos."""
+    empresa - sin usar ningun buscador, solo pedidos HTTP directos. Prueba
+    primero el/los TLD del país de la oferta, y ".com" genérico como
+    último respaldo (muchas empresas lo usan sin importar el país)."""
     base = re.sub(r"[^a-z0-9]", "", empresa.lower())
     for suf in _SUFIJOS_SOCIETARIOS:
         if base.endswith(suf) and len(base) > len(suf) + 2:
@@ -91,20 +104,44 @@ def _candidatos_dominio(empresa):
             break
     if not base:
         return []
-    return [f"https://{base}.com.ar", f"https://{base}.com",
-            f"https://www.{base}.com.ar", f"https://www.{base}.com",
-            f"https://{base}.es"]
+    tlds = _TLDS_POR_INDEED.get(dominio_indeed, [])
+    candidatos = [f"https://{base}.{tld}" for tld in tlds]
+    candidatos += [f"https://www.{base}.{tld}" for tld in tlds]
+    candidatos += [f"https://{base}.com", f"https://www.{base}.com"]
+    return candidatos
 
 
-def encontrar_sitio_y_email(empresa, session):
+# Señales de que la URL "adivinada" NO es el sitio real de la empresa
+# (dominio parkeado/en venta, o pagina de challenge/bloqueo tipo Cloudflare)
+_SITIO_INVALIDO = [
+    "domain for sale", "this domain is for sale", "buy this domain",
+    "dominio en venta", "is parked", "just a moment", "attention required",
+    "checking your browser", "acceso denegado", "access denied",
+]
+
+
+def _dominio_base(url):
+    from urllib.parse import urlparse
+    netloc = urlparse(url).netloc.lower()
+    return netloc[4:] if netloc.startswith("www.") else netloc
+
+
+def encontrar_sitio_y_email(empresa, dominio_indeed, session):
     """Adivina el dominio propio de la empresa (sin buscador) y, si
-    responde con contenido real, busca el email de contacto en esa misma
-    página. No inventa nada: si ningún candidato resuelve, devuelve
-    (None, None)."""
-    for url in _candidatos_dominio(empresa):
+    responde con contenido real (no un dominio parkeado/challenge, y sin
+    redirigir a un sitio totalmente distinto), busca el email de contacto
+    en esa misma página. No inventa nada: si ningún candidato resuelve,
+    devuelve (None, None)."""
+    for url in _candidatos_dominio(empresa, dominio_indeed):
         try:
-            r = session.get(url, headers={"User-Agent": UA}, timeout=6)
+            r = session.get(url, headers={"User-Agent": UA}, timeout=6, allow_redirects=True)
             if r.status_code >= 400 or len(r.text) < 200:
+                continue
+            # Si redirige a un dominio totalmente distinto al que pedimos
+            # (ej. besit.com -> atom.com/name/Besit), no es el sitio real.
+            if _dominio_base(r.url) != _dominio_base(url):
+                continue
+            if any(s in r.text.lower() for s in _SITIO_INVALIDO):
                 continue
         except requests.RequestException:
             continue
@@ -131,7 +168,7 @@ def cazar(limit=10, queries=None):
             if key in seen_empresas:
                 continue
             seen_empresas.add(key)
-            website, email = encontrar_sitio_y_email(empresa, session)
+            website, email = encontrar_sitio_y_email(empresa, dominio_indeed, session)
             if not email:
                 print(f"  [SIN SITIO/EMAIL] {empresa}")
                 continue
