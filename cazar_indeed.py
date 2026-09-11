@@ -41,6 +41,14 @@ QUERIES = [
     ("Desarrollador web Madrid", "desarrollador web", "Madrid", "es.indeed.com"),
     ("Desarrollador web freelance España", "desarrollador web freelance", "España", "es.indeed.com"),
     ("Desarrollador web Ciudad de México", "desarrollador web", "Ciudad de México", "mx.indeed.com"),
+    ("Desarrollador web Guadalajara", "desarrollador web", "Guadalajara", "mx.indeed.com"),
+    ("Desarrollador web Bogotá", "desarrollador web", "Bogotá", "co.indeed.com"),
+    ("Desarrollador web freelance Colombia", "desarrollador web freelance", "Colombia", "co.indeed.com"),
+    ("Desarrollador web Santiago", "desarrollador web", "Santiago", "cl.indeed.com"),
+    ("Desarrollador web freelance Chile", "desarrollador web freelance", "Chile", "cl.indeed.com"),
+    ("Desarrollador web Lima", "desarrollador web", "Lima", "pe.indeed.com"),
+    ("Desarrollador web Caracas", "desarrollador web", "Caracas", "ve.indeed.com"),
+    ("Desarrollador web Panamá", "desarrollador web", "Panamá", "pa.indeed.com"),
 ]
 
 # Nombres genericos que a veces aparecen y no son una empresa real contactable
@@ -89,6 +97,11 @@ _TLDS_POR_INDEED = {
     "ar.indeed.com": ["com.ar"],
     "es.indeed.com": ["es"],
     "mx.indeed.com": ["com.mx", "mx"],
+    "co.indeed.com": ["com.co"],
+    "cl.indeed.com": ["cl"],
+    "pe.indeed.com": ["com.pe"],
+    "ve.indeed.com": ["com.ve"],
+    "pa.indeed.com": ["com.pa"],
 }
 
 
