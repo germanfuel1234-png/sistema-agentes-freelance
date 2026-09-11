@@ -21,6 +21,7 @@ import os
 import re
 import sys
 import time
+from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(__file__))
 import requests
@@ -157,8 +158,15 @@ def encontrar_sitio_y_email(empresa, dominio_indeed, session):
     """Adivina el dominio propio de la empresa (sin buscador) y, si
     responde con contenido real (no un dominio parkeado/challenge, y sin
     redirigir a un sitio totalmente distinto), busca el email de contacto
-    en esa misma página. No inventa nada: si ningún candidato resuelve,
-    devuelve (None, None)."""
+    en esa misma página.
+
+    Devuelve (sitio, email):
+    - (url, email): sitio real y email encontrados.
+    - (url, None): se encontró un sitio real de la empresa pero sin email
+      visible (candidato para seguimiento manual vía formulario).
+    - (None, None): ningún candidato de dominio resolvió a un sitio real.
+    No inventa nada en ningún caso."""
+    primer_sitio_valido = None
     for url in _candidatos_dominio(empresa, dominio_indeed):
         try:
             r = session.get(url, headers={"User-Agent": UA}, timeout=6, allow_redirects=True)
@@ -172,15 +180,23 @@ def encontrar_sitio_y_email(empresa, dominio_indeed, session):
                 continue
         except requests.RequestException:
             continue
+        if primer_sitio_valido is None:
+            primer_sitio_valido = url
         email = find_email_on_page(url, session=session)
         if email:
             return url, email
-    return None, None
+    return primer_sitio_valido, None
+
+
+SEGUIMIENTO_TAB = "seguimiento_manual"
+SEGUIMIENTO_HEADERS = ["Fecha hallazgo", "Empresa", "Ciudad", "Sitio web",
+                       "Formulario de contacto", "Mensaje sugerido", "Fuente"]
 
 
 def cazar(limit=10, queries=None):
     session = requests.Session()
     leads = []
+    sin_email = []  # (empresa, ciudad, sitio) - sitio real pero sin email
     seen_empresas = set()
     for label, query, ciudad, dominio_indeed in (queries or QUERIES):
         if len(leads) >= limit:
@@ -199,30 +215,57 @@ def cazar(limit=10, queries=None):
                 print(f"  [EXCLUIDA] {empresa} (multinacional grande, no es el target)")
                 continue
             website, email = encontrar_sitio_y_email(empresa, dominio_indeed, session)
-            if not email:
-                print(f"  [SIN SITIO/EMAIL] {empresa}")
-                continue
-            lead = Lead(
-                business_name=empresa,
-                email=email.lower(),
-                track=TrackType.PYME,
-                industry="Busca desarrollador web (oferta de empleo real)",
-                city=ciudad_real,
-                country="",
-                website=website,
-                source="Indeed",
-            )
-            leads.append(lead)
-            print(f"  [REAL] {empresa} | {email} | {website}")
+            if email:
+                lead = Lead(
+                    business_name=empresa,
+                    email=email.lower(),
+                    track=TrackType.PYME,
+                    industry="Busca desarrollador web (oferta de empleo real)",
+                    city=ciudad_real,
+                    country="",
+                    website=website,
+                    source="Indeed",
+                )
+                leads.append(lead)
+                print(f"  [REAL] {empresa} | {email} | {website}")
+            elif website:
+                sin_email.append((empresa, ciudad_real, website))
+                print(f"  [SIN EMAIL - sitio real] {empresa} | {website}")
+            else:
+                print(f"  [SIN SITIO] {empresa}")
         time.sleep(3)
-    return leads
+    return leads, sin_email
+
+
+def _guardar_seguimiento_manual(sin_email, sheets, session):
+    """Para empresas con sitio real pero sin email: detecta si hay un
+    formulario de contacto (sin completarlo ni enviarlo) y arma el mensaje
+    sugerido, guardando todo en una pestaña aparte para que el usuario
+    decida caso por caso si escribe a mano."""
+    from mensaje_contacto import generar_mensaje, detectar_formulario_contacto
+
+    sheets.add_sheet(SEGUIMIENTO_TAB, headers=SEGUIMIENTO_HEADERS)
+    existentes = {r[1].strip().lower() for r in sheets.read_range(f"'{SEGUIMIENTO_TAB}'!B2:B10000") if r}
+
+    filas = []
+    for empresa, ciudad, website in sin_email:
+        if empresa.strip().lower() in existentes:
+            continue
+        formulario = detectar_formulario_contacto(website, session=session) or ""
+        filas.append([
+            datetime.now().strftime("%d/%m/%Y"), empresa, ciudad, website,
+            formulario, generar_mensaje(), "Indeed",
+        ])
+    if filas:
+        sheets.write_range(f"'{SEGUIMIENTO_TAB}'!A2", filas, append=True)
+    return len(filas)
 
 
 def main(limit=10, queries=None):
     sheets = SheetsClient()
     existentes = {l.email.strip().lower() for l in sheets.get_all_leads() if l.email and "@" in l.email}
     print(f"[INFO] En Sheets: {len(existentes)} emails")
-    nuevos = cazar(limit=limit, queries=queries)
+    nuevos, sin_email = cazar(limit=limit, queries=queries)
     frescos = [l for l in nuevos if l.email.lower() not in existentes]
     print(f"[INFO] Frescos: {len(frescos)}/{len(nuevos)}")
     ok = 0
@@ -231,6 +274,12 @@ def main(limit=10, queries=None):
             ok += 1
             print(f"  [SHEETS] {l.business_name} <{l.email}>")
     print(f"[OK] Guardados: {ok}/{len(frescos)}")
+
+    if sin_email:
+        session = requests.Session()
+        n = _guardar_seguimiento_manual(sin_email, sheets, session)
+        print(f"[SEGUIMIENTO] {n} empresas sin email nuevas guardadas en '{SEGUIMIENTO_TAB}' para seguimiento manual")
+
     return ok > 0
 
 
