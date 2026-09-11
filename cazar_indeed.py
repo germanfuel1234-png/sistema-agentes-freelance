@@ -26,6 +26,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 import requests
 from bs4 import BeautifulSoup
 
+from core.constants import EXCLUDED_COMPANIES
 from core.models import Lead, TrackType
 from core.sheets_client import SheetsClient
 from services.duckduckgo_search import find_email_on_page
@@ -194,6 +195,9 @@ def cazar(limit=10, queries=None):
             if key in seen_empresas:
                 continue
             seen_empresas.add(key)
+            if any(excl in key for excl in EXCLUDED_COMPANIES):
+                print(f"  [EXCLUIDA] {empresa} (multinacional grande, no es el target)")
+                continue
             website, email = encontrar_sitio_y_email(empresa, dominio_indeed, session)
             if not email:
                 print(f"  [SIN SITIO/EMAIL] {empresa}")
