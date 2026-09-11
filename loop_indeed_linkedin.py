@@ -42,7 +42,7 @@ def ciclo_linkedin():
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--intervalo", type=int, default=10)
+    ap.add_argument("--intervalo", type=int, default=180)
     ap.add_argument("--por-ciclo-indeed", type=int, default=5)
     ap.add_argument("--una-vez", action="store_true")
     ap.add_argument("--max-ciclos", type=int, default=0)
