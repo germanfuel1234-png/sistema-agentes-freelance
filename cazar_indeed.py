@@ -60,32 +60,45 @@ _PATRON_EMPRESA = re.compile(r"Ver todos los\s+Empleos de\s+(.+?)\s+-\s+empleo e
 _SUFIJOS_SOCIETARIOS = ("sa", "srl", "sl", "inc", "llc", "group", "grupo", "ltda", "corp")
 
 
-def buscar_ofertas(query, ciudad, dominio_indeed, limit=15):
-    """Busca ofertas de empleo reales en Indeed (sin login, sin captcha) y
-    devuelve [(empresa, ciudad)] unicos. Si Indeed falla o bloquea, devuelve
-    lista vacia - nunca inventa una empresa."""
+def buscar_ofertas(query, ciudad, dominio_indeed, limit=15, paginas=3):
+    """Busca ofertas de empleo reales en Indeed (sin login, sin captcha),
+    recorriendo hasta `paginas` páginas de resultados (Indeed pagina con
+    start=0,10,20...), y devuelve [(empresa, ciudad)] únicos. Si una
+    página falla o bloquea, corta ahí y devuelve lo que haya juntado hasta
+    el momento - nunca inventa una empresa."""
     headers = {"User-Agent": UA}
-    try:
-        r = requests.get(f"https://{dominio_indeed}/jobs", params={"q": query, "l": ciudad},
-                          headers=headers, timeout=15)
-        r.raise_for_status()
-    except requests.RequestException as e:
-        print(f"  [WARN] Indeed no respondió para '{query}': {e}")
-        return []
-
-    soup = BeautifulSoup(r.text, "html.parser")
-    text = soup.get_text(" ")
     empresas, seen = [], set()
-    for m in _PATRON_EMPRESA.finditer(text):
-        empresa = re.sub(r"\s+", " ", m.group(1)).strip()
-        ciudad_real = re.sub(r"\s+", " ", m.group(2)).strip()
-        key = empresa.lower()
-        if key in seen or key in _EXCLUIR_EMPRESA:
-            continue
-        seen.add(key)
-        empresas.append((empresa, ciudad_real))
+    for pagina in range(paginas):
         if len(empresas) >= limit:
             break
+        if pagina > 0:
+            time.sleep(3)  # pausa entre páginas, no golpear Indeed sin parar
+        start = pagina * 10
+        try:
+            r = requests.get(f"https://{dominio_indeed}/jobs",
+                              params={"q": query, "l": ciudad, "start": start},
+                              headers=headers, timeout=15)
+            r.raise_for_status()
+        except requests.RequestException as e:
+            print(f"  [WARN] Indeed no respondió para '{query}' (página {pagina + 1}): {e}")
+            break
+
+        soup = BeautifulSoup(r.text, "html.parser")
+        text = soup.get_text(" ")
+        encontrados_en_pagina = 0
+        for m in _PATRON_EMPRESA.finditer(text):
+            empresa = re.sub(r"\s+", " ", m.group(1)).strip()
+            ciudad_real = re.sub(r"\s+", " ", m.group(2)).strip()
+            key = empresa.lower()
+            if key in seen or key in _EXCLUIR_EMPRESA:
+                continue
+            seen.add(key)
+            empresas.append((empresa, ciudad_real))
+            encontrados_en_pagina += 1
+            if len(empresas) >= limit:
+                break
+        if encontrados_en_pagina == 0:
+            break  # no hay mas paginas con resultados nuevos, cortar
     return empresas
 
 
