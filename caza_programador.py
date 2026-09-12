@@ -23,7 +23,7 @@ import time
 sys.path.insert(0, os.path.dirname(__file__))
 import requests
 
-from cazar_indeed import EXCLUDED_COMPANIES, buscar_ofertas, encontrar_sitio_y_email
+from cazar_indeed import buscar_ofertas, encontrar_sitio_y_email, es_empresa_excluida
 from core.models import Lead, TrackType
 from core.sheets_client import SheetsClient
 
@@ -62,7 +62,7 @@ def cazar(limit=10, queries=None):
             if key in seen_empresas:
                 continue
             seen_empresas.add(key)
-            if any(excl in key for excl in EXCLUDED_COMPANIES):
+            if es_empresa_excluida(empresa):
                 print(f"  [EXCLUIDA] {empresa} (multinacional grande, no es el target)")
                 continue
             website, email = encontrar_sitio_y_email(empresa, dominio_indeed, session)

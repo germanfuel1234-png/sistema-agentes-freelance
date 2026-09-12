@@ -56,6 +56,24 @@ QUERIES = [
 # Nombres genericos que a veces aparecen y no son una empresa real contactable
 _EXCLUIR_EMPRESA = {"confidencial", "empresa confidencial"}
 
+# Multinacionales de nombre corto/generico (una sola palabra comun) que no
+# entrarian bien en EXCLUDED_COMPANIES como substring sin bloquear negocios
+# chicos legitimos (ej. "wood" bloquearia cualquier "Woodworks" real). Se
+# comparan por nombre EXACTO, no por substring.
+_EXCLUIR_EMPRESA_EXACTO = {"wood", "sanofi", "bbva", "johnson controls"}
+
+
+def es_empresa_excluida(empresa):
+    """Multinacional grande / no es el target (PyME o agencia chica sin
+    developer propio). Normaliza espacios para no fallar con nombres como
+    "Mercado Libre" (la lista trae "mercadolibre" sin espacio)."""
+    key = empresa.lower().strip()
+    key_sin_espacios = key.replace(" ", "")
+    if key in _EXCLUIR_EMPRESA_EXACTO:
+        return True
+    return any(excl in key_sin_espacios for excl in EXCLUDED_COMPANIES)
+
+
 _PATRON_EMPRESA = re.compile(r"Ver todos los\s+Empleos de\s+(.+?)\s+-\s+empleo en\s+(.+?)\s+-")
 
 # Sufijos societarios que rara vez estan en el dominio (Tecnoap SA -> tecnoap.com)
@@ -211,7 +229,7 @@ def cazar(limit=10, queries=None):
             if key in seen_empresas:
                 continue
             seen_empresas.add(key)
-            if any(excl in key for excl in EXCLUDED_COMPANIES):
+            if es_empresa_excluida(empresa):
                 print(f"  [EXCLUIDA] {empresa} (multinacional grande, no es el target)")
                 continue
             website, email = encontrar_sitio_y_email(empresa, dominio_indeed, session)
