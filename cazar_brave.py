@@ -170,10 +170,13 @@ def _pais_real(domain, pais_de_query):
             return pais  # no coincide: el dominio manda
     return pais_de_query
 _RELEVANT_KEYWORDS = [
-    "agencia", "marketing", "publicidad", "community", "comunicacion",
+    "agencia", "marketing", "publicidad", "community manager", "comunicacion",
     "comunicación", "branding", "diseño", "diseno", "creativ", "medios",
     "media", "digital", "freelance", "seo", "redes sociales", "social media",
 ]
+# "community" solo (sin "manager") matcheaba "Microsoft Community" y otros
+# foros de soporte genéricos - probado en vivo, esa palabra sola dejaba
+# pasar basura de Bing como si fuera relevante. Se exige la frase completa.
 # "agencia" solo no alcanza (agencia de NOTICIAS, de VIAJES, de EMPLEO,
 # TRIBUTARIA no son agencias de marketing). Si aparece alguna de estas,
 # se descarta aunque matchee una palabra de _RELEVANT_KEYWORDS.
@@ -210,9 +213,15 @@ _EXCLUDED_DOMAINS = [
     # ver con una agencia/freelancer real (ej: zhihu.com salió una vez
     # para "community manager freelance Cordoba" sin relación alguna)
     "wikipedia.org", "rae.es", "zhihu.com", "quora.com", "reddit.com",
-    "github.com", "stackoverflow.com", "microsoft.com", "google.com",
-    "apple.com", "amazon.com", "streamlabs.com",
+    "github.com", "stackoverflow.com", "microsoft.", "google.",
+    "apple.", "amazon.", "streamlabs.com",
 ]
+# microsoft./google./apple./amazon. sin ".com" fijo a propósito: probado en
+# vivo que Bing devuelve basura con subdominios regionales (ej.
+# "associates.amazon.ca") que "amazon.com" no atrapa por ser un substring
+# distinto - una de esas basuras ("Amazon Associates... affiliate marketing
+# program") incluso coló el filtro de relevancia por mencionar "marketing"
+# fuera de contexto, así que esta lista es la última barrera.
 
 
 # Exclusiones -palabra que van SOLO en la query de DuckDuckGo. Verificado
@@ -224,14 +233,35 @@ _EXCLUDED_DOMAINS = [
 _DDG_EXCLUSIONES = "-wikipedia -linkedin -glassdoor -github"
 
 
+def _tiene_resultado_relevante(items):
+    """Bing (probado en vivo, 05/09/2026) a veces responde 200 con
+    resultados armados - pero completamente ajenos a la query: para
+    "agencia marketing digital Buenos Aires contacto email" devolvió, en
+    corridas seguidas, videos de YouTube, seguros de salud de EEUU
+    (UnitedHealthcare, HealthCare.gov), aerolíneas, sitios de gobierno
+    brasileño, TripAdvisor, Yelp - basura sin relación alguna, no un
+    bloqueo explícito (no hay CAPTCHA ni 4xx, el motor "contesta bien").
+    Si se acepta ese resultado como "el motor respondió", el ciclo entero
+    se pierde sin ni un lead. Por eso cada motor tiene que traer al menos
+    un resultado que pase el filtro de relevancia para contar como éxito;
+    si no, se trata igual que si hubiera fallado y se prueba el siguiente."""
+    from urllib.parse import urlparse
+    for title, link, snippet in items:
+        domain = urlparse(link).netloc.lower()
+        if _es_relevante(title, snippet, domain):
+            return True
+    return False
+
+
 def _buscar_multi_motor(q):
-    """Prueba Brave primero; si falla o no trae nada, cae a Bing; si Bing
-    tampoco trae nada, cae a DuckDuckGo; si DuckDuckGo tampoco, prueba
-    Yahoo como último recurso (probado en vivo: funciona pero solo
-    responde ~40-60% de las veces, por eso va último). Cada motor tiene
-    su propio rate-limit/bloqueo independiente, así que si uno está caído
-    los otros suelen seguir funcionando. Nunca inventa resultados: si los
-    cuatro fallan, devuelve lista vacía.
+    """Prueba Brave primero; si falla, no trae nada, o solo trae basura sin
+    relación (ver _tiene_resultado_relevante), cae a Bing; mismo criterio
+    para caer de Bing a DuckDuckGo, y de ahí a Yahoo como último recurso
+    (probado en vivo: funciona pero solo responde ~40-60% de las veces,
+    por eso va último). Cada motor tiene su propio rate-limit/bloqueo
+    independiente, así que si uno está caído los otros suelen seguir
+    funcionando. Nunca inventa resultados: si los cuatro fallan, devuelve
+    lista vacía.
 
     Devuelve (items, motor) donde cada item es (title, link, snippet).
     """
@@ -240,23 +270,33 @@ def _buscar_multi_motor(q):
     except Exception as e:
         print("  FAIL Brave: %s" % e)
         brave = []
-    if brave:
-        return [(t, l, "") for t, l in brave], "Brave"
+    brave_items = [(t, l, "") for t, l in brave]
+    if brave_items and _tiene_resultado_relevante(brave_items):
+        return brave_items, "Brave"
 
     from services.bing_search import search_bing
     bing = search_bing(q, limit=9)
-    if bing:
-        return [(r["title"], r["link"], r["snippet"]) for r in bing], "Bing"
+    bing_items = [(r["title"], r["link"], r["snippet"]) for r in bing]
+    if bing_items and _tiene_resultado_relevante(bing_items):
+        return bing_items, "Bing"
+    if bing_items:
+        print("  -> Bing trajo %d links pero ninguno relevante (basura), sigo probando" % len(bing_items))
 
     from services.duckduckgo_search import search_duckduckgo
     ddg = search_duckduckgo(f"{q} {_DDG_EXCLUSIONES}", limit=9)
-    if ddg:
-        return [(r["title"], r["link"], r["snippet"]) for r in ddg], "DuckDuckGo"
+    ddg_items = [(r["title"], r["link"], r["snippet"]) for r in ddg]
+    if ddg_items and _tiene_resultado_relevante(ddg_items):
+        return ddg_items, "DuckDuckGo"
+    if ddg_items:
+        print("  -> DuckDuckGo trajo %d links pero ninguno relevante (basura), sigo probando" % len(ddg_items))
 
     from services.yahoo_search import search_yahoo
     yahoo = search_yahoo(q, limit=9)
-    if yahoo:
-        return [(r["title"], r["link"], r["snippet"]) for r in yahoo], "Yahoo"
+    yahoo_items = [(r["title"], r["link"], r["snippet"]) for r in yahoo]
+    if yahoo_items and _tiene_resultado_relevante(yahoo_items):
+        return yahoo_items, "Yahoo"
+    if yahoo_items:
+        print("  -> Yahoo trajo %d links pero ninguno relevante (basura)" % len(yahoo_items))
 
     return [], None
 
@@ -276,7 +316,7 @@ def cazar(limit=2, queries=None):
         print("[BUSCA] " + q)
         results, motor = _buscar_multi_motor(q)
         if not motor:
-            print("  -> los 3 motores (Brave/Bing/DuckDuckGo) fallaron o bloquearon, sigo con la próxima query")
+            print("  -> los 4 motores (Brave/Bing/DuckDuckGo/Yahoo) fallaron, bloquearon o solo trajeron basura, sigo con la próxima query")
             time.sleep(20 * random.uniform(0.7, 1.4))
             continue
         print("  -> %d links vía %s" % (len(results), motor))
