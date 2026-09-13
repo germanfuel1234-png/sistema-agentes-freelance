@@ -21,7 +21,12 @@ def ciclo(por_ciclo, inicio_q):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--intervalo", type=int, default=10)
-    ap.add_argument("--por-ciclo", type=int, default=2)
+    # 6, no 2: cada ciclo ya prueba hasta 4 queries y cada una puede traer
+    # varios leads reales de una sola vez (probado en vivo: una query trajo
+    # 4 leads reales en una sola pasada) - con el límite bajo se estaban
+    # descartando leads ya encontrados y validados solo por el tope, sin
+    # ahorrar ningún pedido a los buscadores (esos ya se habían hecho).
+    ap.add_argument("--por-ciclo", type=int, default=6)
     ap.add_argument("--una-vez", action="store_true")
     ap.add_argument("--max-ciclos", type=int, default=0)
     a = ap.parse_args()
