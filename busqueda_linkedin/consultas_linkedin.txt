@@ -14,6 +14,7 @@ Ventana: ultimos 7 dias (aplicar filtro de fecha en cada red).
 "red de talento freelance" (desarrollo OR SEO OR Python)
 "busco freelance" (Python OR Backend OR Automatizacion) Argentina
 "freelancer" OR "freelance" OR "busco" (Python OR Backend OR Automatizacion) Argentina
+"busco desarrollador" OR "busco programador" OR "necesito agencia" "contacto"
 
 -- Contratacion directa de desarrollador web (España / LatAm) --
 "buscamos desarrollador web" (España OR Madrid OR Barcelona OR Argentina OR Mexico OR Colombia OR Chile OR Peru)
@@ -39,6 +40,7 @@ https://www.linkedin.com/search/results/content/?keywords=%22busco%20freelance%2
 "buscamos perfiles freelance" (Python OR PHP OR Dart OR Kotlin OR SEO) -filter:replies
 "red de talento freelance" -filter:replies
 "buscamos freelance" (SEO OR Python OR "desarrollo web") -filter:replies
+"busco desarrollador" OR "busco diseñador" OR "necesito automatizar" (Argentina OR Latam OR España) -filter:replies
 
 URLs directas:
 https://x.com/search?q=%22buscamos%20talento%20freelance%22&f=live

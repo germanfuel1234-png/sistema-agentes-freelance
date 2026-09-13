@@ -19,6 +19,7 @@ import argparse
 import os
 import sys
 import time
+import random
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(__file__))
@@ -93,7 +94,7 @@ def cazar(limit=10, queries=None):
                 print(f"  [SIN EMAIL - sitio real] {empresa} | {website}")
             else:
                 print(f"  [SIN SITIO] {empresa}")
-        time.sleep(3)
+        time.sleep(3 * random.uniform(0.7, 1.4))
     return leads, sin_email
 
 

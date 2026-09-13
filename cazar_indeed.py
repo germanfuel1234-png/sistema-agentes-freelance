@@ -21,6 +21,7 @@ import os
 import re
 import sys
 import time
+import random
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(__file__))
@@ -62,14 +63,28 @@ _EXCLUIR_EMPRESA = {"confidencial", "empresa confidencial"}
 # comparan por nombre EXACTO, no por substring.
 _EXCLUIR_EMPRESA_EXACTO = {"wood", "sanofi", "bbva", "johnson controls"}
 
+# Intermediarios de RRHH/staffing (no son el cliente final - ellos mismos
+# "alquilan" developers a otras empresas, compiten con nosotros en vez de
+# ser un lead). Distinto de EXCLUDED_COMPANIES (multinacionales grandes):
+# esto son PATRONES de nombre, cualquier empresa con estas palabras suele
+# ser una consultora/software factory, no una PyME con necesidad real.
+_PATRONES_INTERMEDIARIO = (
+    "software factory", "staff augmentation", "consultora de sistemas",
+    "consultora it", "consultora ti", "recursos humanos", "rrhh",
+    "headhunter", "reclutamiento", "outsourcing", "body shop",
+)
+
 
 def es_empresa_excluida(empresa):
-    """Multinacional grande / no es el target (PyME o agencia chica sin
-    developer propio). Normaliza espacios para no fallar con nombres como
-    "Mercado Libre" (la lista trae "mercadolibre" sin espacio)."""
+    """Multinacional grande, o intermediario de staffing/RRHH - no es el
+    target (PyME o agencia chica sin developer propio). Normaliza espacios
+    para no fallar con nombres como "Mercado Libre" (la lista trae
+    "mercadolibre" sin espacio)."""
     key = empresa.lower().strip()
     key_sin_espacios = key.replace(" ", "")
     if key in _EXCLUIR_EMPRESA_EXACTO:
+        return True
+    if any(patron in key for patron in _PATRONES_INTERMEDIARIO):
         return True
     return any(excl in key_sin_espacios for excl in EXCLUDED_COMPANIES)
 
@@ -92,7 +107,7 @@ def buscar_ofertas(query, ciudad, dominio_indeed, limit=15, paginas=3):
         if len(empresas) >= limit:
             break
         if pagina > 0:
-            time.sleep(3)  # pausa entre páginas, no golpear Indeed sin parar
+            time.sleep(3 * random.uniform(0.7, 1.4))  # pausa entre páginas, no golpear Indeed sin parar
         start = pagina * 10
         try:
             r = requests.get(f"https://{dominio_indeed}/jobs",
@@ -251,7 +266,7 @@ def cazar(limit=10, queries=None):
                 print(f"  [SIN EMAIL - sitio real] {empresa} | {website}")
             else:
                 print(f"  [SIN SITIO] {empresa}")
-        time.sleep(3)
+        time.sleep(3 * random.uniform(0.7, 1.4))
     return leads, sin_email
 
 

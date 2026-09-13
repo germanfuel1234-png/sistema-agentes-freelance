@@ -215,6 +215,15 @@ _EXCLUDED_DOMAINS = [
 ]
 
 
+# Exclusiones -palabra que van SOLO en la query de DuckDuckGo. Verificado
+# en vivo: DuckDuckGo respeta bien el operador "-palabra" (resultados
+# reales y relevantes con 2-3 exclusiones); Bing en cambio ROMPE por
+# completo la búsqueda con cualquier operador (site:, -exclusion, OR
+# combinados) y devuelve basura sin relación - probado y confirmado, por
+# eso Brave/Bing siguen recibiendo la query plana sin operadores.
+_DDG_EXCLUSIONES = "-wikipedia -linkedin -glassdoor -github"
+
+
 def _buscar_multi_motor(q):
     """Prueba Brave primero; si falla o no trae nada, cae a Bing; si Bing
     tampoco trae nada, cae a DuckDuckGo. Cada motor tiene su propio
@@ -238,7 +247,7 @@ def _buscar_multi_motor(q):
         return [(r["title"], r["link"], r["snippet"]) for r in bing], "Bing"
 
     from services.duckduckgo_search import search_duckduckgo
-    ddg = search_duckduckgo(q, limit=9)
+    ddg = search_duckduckgo(f"{q} {_DDG_EXCLUSIONES}", limit=9)
     if ddg:
         return [(r["title"], r["link"], r["snippet"]) for r in ddg], "DuckDuckGo"
 
@@ -261,7 +270,7 @@ def cazar(limit=2, queries=None):
         results, motor = _buscar_multi_motor(q)
         if not motor:
             print("  -> los 3 motores (Brave/Bing/DuckDuckGo) fallaron o bloquearon, sigo con la próxima query")
-            time.sleep(20)
+            time.sleep(20 * random.uniform(0.7, 1.4))
             continue
         print("  -> %d links vía %s" % (len(results), motor))
         for title, link, snippet in results:
@@ -287,7 +296,7 @@ def cazar(limit=2, queries=None):
             if svc.validate_lead(lead):
                 leads.append(lead)
                 print("  [REAL] %s | %s | %s" % (lead.business_name, lead.email, lead.website))
-        time.sleep(20)
+        time.sleep(20 * random.uniform(0.7, 1.4))
     return leads
 def main(limit=2, queries=None):
     import argparse, sys as _sys
