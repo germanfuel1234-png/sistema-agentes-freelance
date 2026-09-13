@@ -1,14 +1,20 @@
 """Loop caza constante. Uso: python loop_caza.py --una-vez"""
 import sys, os, time, argparse, traceback
 sys.path.insert(0, os.path.dirname(__file__))
-QUERIES_ROT = ["agencia marketing digital Buenos Aires contacto email", "agencia publicidad Argentina contacto email", "agencia marketing digital Cordoba contacto email", "agencia marketing digital Rosario contacto email", "agencia marketing digital Mexico contacto email", "agencia marketing digital Colombia contacto email"]
+QUERIES_FILE = os.path.join(os.path.dirname(__file__), "queries_loop_caza.txt")
 
-QUERIES_ROT2 = ["agencia marketing digital Chile contacto email", "community manager freelance Argentina email contacto", "disenador web freelance Argentina contacto email", "agencia branding Mexico contacto email", "agencia digital Peru contacto email", "estudio diseno web Argentina contacto email"]
 
-QUERIES_ESPANA = ["agencia marketing digital Madrid contacto email", "agencia marketing digital Barcelona contacto email", "agencia publicidad España contacto email", "community manager freelance España contacto email", "disenador grafico freelance España contacto email", "agencia digital Valencia contacto email"]
+def _cargar_queries():
+    """Lee queries_loop_caza.txt: una query por línea, se ignoran vacías y
+    las que empiezan con '#' (separadores/comentarios de país). Separado
+    del código para poder sumar ciudades/países nuevos sin tocar nada acá."""
+    with open(QUERIES_FILE, encoding="utf-8") as f:
+        return [line.strip() for line in f if line.strip() and not line.strip().startswith("#")]
+
+
 def ciclo(por_ciclo, inicio_q):
     import cazar_brave as cz
-    todas = QUERIES_ROT + QUERIES_ROT2 + QUERIES_ESPANA
+    todas = _cargar_queries()
     q = todas[inicio_q % len(todas):] + todas[:inicio_q % len(todas)]
     qs = [("Loop %d" % (i + 1), x) for i, x in enumerate(q[:4])]
     return cz.main(limit=por_ciclo, queries=qs)
@@ -32,7 +38,7 @@ def main():
         except Exception as e:
             print("CICLO %d ERROR: %s" % (n, e))
             traceback.print_exc()
-        idx = (idx + 4) % len(QUERIES_ROT + QUERIES_ROT2 + QUERIES_ESPANA)
+        idx = (idx + 4) % len(_cargar_queries())
         if a.una_vez:
             break
         if a.max_ciclos and n >= a.max_ciclos:

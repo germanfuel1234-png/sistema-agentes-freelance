@@ -1,0 +1,84 @@
+# ================================================================
+# QUERIES DE loop_caza.py - agencias de marketing/freelance
+# Este archivo SI lo lee el código (a diferencia de
+# busqueda_linkedin/consultas_linkedin.txt, que es solo referencia
+# manual). Cada línea no vacía y que no empiece con "#" es una query
+# real que se manda a Brave/Bing/DuckDuckGo/Yahoo.
+#
+# Para agregar cobertura (ciudad, país, rubro nuevo) alcanza con sumar
+# una línea acá, no hace falta tocar loop_caza.py.
+#
+# El loop rota de a 4 queries por ciclo (cada 10 min) siguiendo el
+# orden de este archivo de arriba hacia abajo, y al llegar al final
+# vuelve a empezar.
+# ================================================================
+
+# --- Argentina ---
+agencia marketing digital Buenos Aires contacto email
+agencia publicidad Argentina contacto email
+agencia marketing digital Cordoba contacto email
+agencia marketing digital Rosario contacto email
+agencia marketing digital Mendoza contacto email
+agencia marketing digital La Plata contacto email
+community manager freelance Argentina email contacto
+disenador web freelance Argentina contacto email
+estudio diseno web Argentina contacto email
+
+# --- Mexico ---
+agencia marketing digital Ciudad de Mexico contacto email
+agencia marketing digital Guadalajara contacto email
+agencia marketing digital Monterrey contacto email
+agencia branding Mexico contacto email
+disenador web freelance Mexico contacto email
+community manager freelance Mexico contacto email
+
+# --- Colombia ---
+agencia marketing digital Bogota contacto email
+agencia marketing digital Medellin contacto email
+agencia digital Cali contacto email
+disenador web freelance Colombia contacto email
+
+# --- Chile ---
+agencia marketing digital Santiago contacto email
+agencia digital Chile contacto email
+disenador web freelance Chile contacto email
+
+# --- Peru ---
+agencia marketing digital Lima contacto email
+agencia digital Peru contacto email
+disenador web freelance Peru contacto email
+
+# --- España ---
+agencia marketing digital Madrid contacto email
+agencia marketing digital Barcelona contacto email
+agencia marketing digital Valencia contacto email
+agencia marketing digital Sevilla contacto email
+agencia publicidad España contacto email
+community manager freelance España contacto email
+disenador grafico freelance España contacto email
+
+# --- Uruguay ---
+agencia marketing digital Montevideo contacto email
+disenador web freelance Uruguay contacto email
+
+# --- Paraguay ---
+agencia marketing digital Asuncion contacto email
+
+# --- Bolivia ---
+agencia marketing digital Bolivia contacto email
+
+# --- Ecuador ---
+agencia marketing digital Quito contacto email
+agencia marketing digital Guayaquil contacto email
+
+# --- Guatemala ---
+agencia marketing digital Guatemala contacto email
+
+# --- Costa Rica ---
+agencia marketing digital Costa Rica contacto email
+
+# --- Panama ---
+agencia marketing digital Panama contacto email
+
+# --- Republica Dominicana ---
+agencia marketing digital Republica Dominicana contacto email

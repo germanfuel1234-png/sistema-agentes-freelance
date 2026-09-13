@@ -127,7 +127,15 @@ CAZADORES (qué se busca)
                         buscar_ofertas/encontrar_sitio_y_email)
 
 LOOPS (cuándo se busca)
-├─ loop_caza.py     cada 10 min -> cazar_brave.py
+├─ loop_caza.py          cada 10 min -> cazar_brave.py (4 queries por ciclo,
+│                        leídas de queries_loop_caza.txt en orden, rotando)
+├─ queries_loop_caza.txt Lista de queries de loop_caza.py (ciudad/país +
+│                        rubro). A diferencia de consultas_linkedin.txt,
+│                        este SÍ lo lee el código - sumar una línea acá
+│                        alcanza para agregar cobertura, sin tocar Python.
+│                        42 queries -> el pool completo tarda ~1h45 en
+│                        repetirse (antes eran 18 queries fijas en el
+│                        código, se repetían cada 45 min).
 └─ loop_indeed.py   cada 3 hs, alterna -> cazar_indeed.py / caza_programador.py
 
 FILTROS COMPARTIDOS
