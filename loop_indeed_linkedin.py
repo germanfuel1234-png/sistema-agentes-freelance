@@ -82,7 +82,10 @@ def main():
             if os.path.exists(STOP_FILE):
                 print("STOP_indeed_linkedin.loop, saliendo.")
                 return
-            print(f"próx ciclo en {(m + 59) // 60}min (STOP_indeed_linkedin.loop frena)")
+            # Avisa cada 30 min, no minuto a minuto (sigue chequeando el
+            # freno cada minuto igual, solo que no lo imprime cada vez).
+            if m % 1800 == 0:
+                print(f"próx ciclo en {(m + 59) // 60}min (STOP_indeed_linkedin.loop frena)")
             time.sleep(60)
 
 
