@@ -211,7 +211,7 @@ _EXCLUDED_DOMAINS = [
     # para "community manager freelance Cordoba" sin relación alguna)
     "wikipedia.org", "rae.es", "zhihu.com", "quora.com", "reddit.com",
     "github.com", "stackoverflow.com", "microsoft.com", "google.com",
-    "apple.com", "amazon.com",
+    "apple.com", "amazon.com", "streamlabs.com",
 ]
 
 
