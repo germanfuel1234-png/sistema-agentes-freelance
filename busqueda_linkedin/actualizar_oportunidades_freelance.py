@@ -34,9 +34,11 @@ SPREADSHEET_ID = "1hjwAUrKaCu53McleYaJZj99b65IoKHBVqIZ96qfvF1I"
 DEFAULT_TAB = "oportunidades_freelance"
 FOOTPRINTS = ["Estamos buscando talento freelance",
               "creando nuestra red de talento freelance",
-              "buscamos perfiles freelance para"]
+              "buscamos perfiles freelance para",
+              "busco freelance"]
 SKILLS = ["desarrollo web", "diseno web", "SEO tecnico",
-          "analisis de sistemas", "Python", "PHP", "Dart", "Kotlin"]
+          "analisis de sistemas", "Python", "PHP", "Dart", "Kotlin",
+          "Backend", "Automatizacion"]
 # Frase de contratacion directa ("buscamos desarrollador web"), no solo el
 # patron generico de "talento freelance". Se cruza con region, no con SKILLS
 # (no tiene sentido "buscamos desarrollador web" + "Kotlin" como frase).

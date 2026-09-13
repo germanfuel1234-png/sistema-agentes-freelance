@@ -12,6 +12,8 @@ Ventana: ultimos 7 dias (aplicar filtro de fecha en cada red).
 "buscamos perfiles freelance para" (web OR SEO OR Python OR PHP OR Dart OR Kotlin)
 "buscamos freelance" ("desarrollo web" OR "SEO" OR Python OR PHP)
 "red de talento freelance" (desarrollo OR SEO OR Python)
+"busco freelance" (Python OR Backend OR Automatizacion) Argentina
+"freelancer" OR "freelance" OR "busco" (Python OR Backend OR Automatizacion) Argentina
 
 -- Contratacion directa de desarrollador web (España / LatAm) --
 "buscamos desarrollador web" (España OR Madrid OR Barcelona OR Argentina OR Mexico OR Colombia OR Chile OR Peru)
@@ -29,6 +31,7 @@ https://www.linkedin.com/search/results/content/?keywords=%22buscamos%20freelanc
 https://www.linkedin.com/search/results/content/?keywords=%22buscamos%20desarrollador%20web%22
 https://www.linkedin.com/search/results/content/?keywords=%22looking%20for%20a%20freelance%20web%20developer%22
 https://www.linkedin.com/search/results/content/?keywords=%22hiring%20a%20freelance%20web%20developer%22
+https://www.linkedin.com/search/results/content/?keywords=%22busco%20freelance%22%20Automatizacion&sortBy=%5B%22date_posted%22%5D
 
 -- X / TWITTER (logueado) -> busqueda en vivo, ultima semana --
 
