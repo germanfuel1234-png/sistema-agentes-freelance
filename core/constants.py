@@ -47,6 +47,7 @@ EXCLUDED_COMPANIES = [
     "pwc",
     "kpmg",
     "bdo",
+    "capgemini",
 ]
 
 MARKETING_KEYWORDS = [
