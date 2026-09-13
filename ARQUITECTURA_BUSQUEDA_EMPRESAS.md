@@ -24,7 +24,7 @@ búsqueda, a propósito, para que no compitan por el mismo cupo/rate-limit:
 │   cada 10 minutos            │         │   cada 3 horas                │
 │                               │         │                                │
 │   Motor: Brave → Bing →       │         │   Motor: Indeed EXCLUSIVO      │
-│          DuckDuckGo           │         │   (nunca toca Bing/Brave)      │
+│   DuckDuckGo → Yahoo          │         │   (nunca toca Bing/Brave)      │
 │                               │         │                                │
 │   Busca: "agencia de          │         │   Alterna cada ciclo:          │
 │   marketing", "freelance",    │         │   - cazar_indeed.py            │
@@ -52,7 +52,9 @@ Los dos loops siguen la misma lógica interna, solo cambia el motor:
 ```
 1. BUSCAR
    ├─ loop_caza.py:   pide resultados a Brave; si falla (429), prueba
-   │                  Bing; si falla, prueba DuckDuckGo.
+   │                  Bing; si falla, prueba DuckDuckGo; si falla, prueba
+   │                  Yahoo como último recurso (funciona pero solo
+   │                  responde ~40-60% de las veces, por eso va último).
    └─ loop_indeed.py: pide la página de resultados de Indeed
                        (ar/es/mx/co/cl/ve/pa.indeed.com), hasta 3 páginas.
 
@@ -110,8 +112,10 @@ para copiar/pegar, pero el envío es una decisión humana.
 BÚSQUEDA (motor)
 ├─ services/bing_search.py         Bing HTML, sin API key
 ├─ services/duckduckgo_search.py   DuckDuckGo HTML, sin API key
+├─ services/yahoo_search.py        Yahoo HTML, sin API key (respaldo final,
+│                                   flaky: ~40-60% responde, el resto 500)
 └─ cazar_brave.py                  Brave HTML + orquesta el fallback
-                                    Brave -> Bing -> DuckDuckGo
+                                    Brave -> Bing -> DuckDuckGo -> Yahoo
 
 CAZADORES (qué se busca)
 ├─ cazar_brave.py       Agencias/freelancers/community managers/
@@ -164,9 +168,17 @@ Todos los cazadores escriben a la misma planilla, cada uno en su pestaña:
   mucho en poco tiempo. Se recupera solo en unas horas. Por eso la cadena
   de 3 motores: si uno está bloqueado, los otros suelen seguir sirviendo.
 - **Indeed**: mismo tipo de bloqueo (403), por país/dominio.
-- **Google, Startpage, Mojeek, Yandex, ZipRecruiter**: tienen CAPTCHA o
-  anti-bot activo (Cloudflare, reCAPTCHA, Anubis). Sortear eso no es algo
-  que este sistema haga, bajo ninguna circunstancia.
+- **Google, Startpage, Mojeek, Yandex, ZipRecruiter, Qwant, SearXNG
+  (instancias públicas), Boardreader**: tienen CAPTCHA o anti-bot activo
+  (Cloudflare, reCAPTCHA, Anubis, DataDome), o directamente no traen datos
+  en el HTML crudo (Qwant y Boardreader son apps JS - React/Angular - sin
+  resultados server-side, igual que pasaba con Google Jobs). Probados en
+  vivo y descartados por eso. Sortear un CAPTCHA no es algo que este
+  sistema haga, bajo ninguna circunstancia.
+- **Yahoo**: no tiene CAPTCHA ni bloqueo duro, pero es inconsistente - en
+  pruebas seguidas solo respondió ~40-60% de las veces (el resto, error
+  500 de su propio backend). Por eso está como cuarto motor, después de
+  DuckDuckGo, nunca como principal.
 - **LinkedIn**: los posteos y perfiles no están indexados por ningún
   buscador público sin sesión iniciada — por eso la búsqueda de LinkedIn
   es manual, no automática.

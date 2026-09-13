@@ -1,5 +1,5 @@
 """Caza 2 REALES via Brave (no bloqueado) y guarda en gid=353922196."""
-import csv, sys, os, re, time
+import csv, sys, os, re, time, random
 sys.path.insert(0, os.path.dirname(__file__))
 SHEET_ID = "1hjwAUrKaCu53McleYaJZj99b65IoKHBVqIZ96qfvF1I"
 GID = "353922196"
@@ -226,10 +226,12 @@ _DDG_EXCLUSIONES = "-wikipedia -linkedin -glassdoor -github"
 
 def _buscar_multi_motor(q):
     """Prueba Brave primero; si falla o no trae nada, cae a Bing; si Bing
-    tampoco trae nada, cae a DuckDuckGo. Cada motor tiene su propio
-    rate-limit independiente, así que si uno está bloqueado los otros
-    dos suelen seguir funcionando. Nunca inventa resultados: si los tres
-    fallan, devuelve lista vacía.
+    tampoco trae nada, cae a DuckDuckGo; si DuckDuckGo tampoco, prueba
+    Yahoo como último recurso (probado en vivo: funciona pero solo
+    responde ~40-60% de las veces, por eso va último). Cada motor tiene
+    su propio rate-limit/bloqueo independiente, así que si uno está caído
+    los otros suelen seguir funcionando. Nunca inventa resultados: si los
+    cuatro fallan, devuelve lista vacía.
 
     Devuelve (items, motor) donde cada item es (title, link, snippet).
     """
@@ -250,6 +252,11 @@ def _buscar_multi_motor(q):
     ddg = search_duckduckgo(f"{q} {_DDG_EXCLUSIONES}", limit=9)
     if ddg:
         return [(r["title"], r["link"], r["snippet"]) for r in ddg], "DuckDuckGo"
+
+    from services.yahoo_search import search_yahoo
+    yahoo = search_yahoo(q, limit=9)
+    if yahoo:
+        return [(r["title"], r["link"], r["snippet"]) for r in yahoo], "Yahoo"
 
     return [], None
 
