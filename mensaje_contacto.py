@@ -32,9 +32,29 @@ Saludos,
 Germán Rodríguez"""
 
 
+# Variante para leads que buscan automatización/bots/RPA (caza_programador.py),
+# mencionando la experiencia real en vez del pitch genérico de "desarrollador web".
+MENSAJE_TEMPLATE_AUTOMATIZACION = """Hola,
+
+Vi que están buscando automatizar procesos y quería presentarme: soy Germán Rodríguez, desarrollador backend freelance (Buenos Aires, Argentina), especializado en automatización con Python.
+
+Actualmente desarrollo bots de automatización operativa para el Gobierno de la Provincia de Buenos Aires, reduciendo tareas manuales en un 30%. Si están evaluando resolver esto con un freelance en vez de una contratación full-time, me encantaría ser una opción.
+
+Te comparto mi portfolio: https://germanrodriguez.ar/
+
+Quedo a disposición.
+Saludos,
+Germán Rodríguez"""
+
+
 def generar_mensaje():
     """Devuelve el texto listo para pegar en un formulario de contacto."""
     return MENSAJE_TEMPLATE
+
+
+def generar_mensaje_automatizacion():
+    """Variante del mensaje para leads que buscan automatización/bots/RPA."""
+    return MENSAJE_TEMPLATE_AUTOMATIZACION
 
 
 def detectar_formulario_contacto(url, session=None):

@@ -19,13 +19,21 @@ import argparse
 import os
 import sys
 import time
+from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(__file__))
 import requests
 
-from cazar_indeed import buscar_ofertas, encontrar_sitio_y_email, es_empresa_excluida
+from cazar_indeed import (
+    SEGUIMIENTO_HEADERS,
+    SEGUIMIENTO_TAB,
+    buscar_ofertas,
+    encontrar_sitio_y_email,
+    es_empresa_excluida,
+)
 from core.models import Lead, TrackType
 from core.sheets_client import SheetsClient
+from mensaje_contacto import detectar_formulario_contacto, generar_mensaje_automatizacion
 
 # (etiqueta, query, ciudad, dominio de Indeed a usar)
 QUERIES = [
@@ -48,6 +56,7 @@ HEADERS = ["Fecha envio", "Negocio/Agencia", "Track (PyME/Marketing)", "Rubro",
 def cazar(limit=10, queries=None):
     session = requests.Session()
     leads = []
+    sin_email = []  # (empresa, ciudad, sitio) - sitio real pero sin email
     seen_empresas = set()
     for label, query, ciudad, dominio_indeed in (queries or QUERIES):
         if len(leads) >= limit:
@@ -66,23 +75,49 @@ def cazar(limit=10, queries=None):
                 print(f"  [EXCLUIDA] {empresa} (multinacional grande, no es el target)")
                 continue
             website, email = encontrar_sitio_y_email(empresa, dominio_indeed, session)
-            if not email:
-                print(f"  [SIN EMAIL] {empresa}")
-                continue
-            lead = Lead(
-                business_name=empresa,
-                email=email.lower(),
-                track=TrackType.PYME,
-                industry="Busca automatización/bot/RPA (oferta de empleo real)",
-                city=ciudad_real,
-                country="",
-                website=website,
-                source="Indeed",
-            )
-            leads.append(lead)
-            print(f"  [REAL] {empresa} | {email} | {website}")
+            if email:
+                lead = Lead(
+                    business_name=empresa,
+                    email=email.lower(),
+                    track=TrackType.PYME,
+                    industry="Busca automatización/bot/RPA (oferta de empleo real)",
+                    city=ciudad_real,
+                    country="",
+                    website=website,
+                    source="Indeed",
+                )
+                leads.append(lead)
+                print(f"  [REAL] {empresa} | {email} | {website}")
+            elif website:
+                sin_email.append((empresa, ciudad_real, website))
+                print(f"  [SIN EMAIL - sitio real] {empresa} | {website}")
+            else:
+                print(f"  [SIN SITIO] {empresa}")
         time.sleep(3)
-    return leads
+    return leads, sin_email
+
+
+def _guardar_seguimiento_manual(sin_email, sheets, session):
+    """Empresas con sitio real pero sin email: se guardan en la MISMA
+    pestaña de seguimiento manual que usa cazar_indeed.py (es el mismo
+    concepto - "revisar a mano"), pero con el mensaje adaptado a
+    automatización/bots/RPA en vez del pitch de desarrollador web."""
+    sheets.add_sheet(SEGUIMIENTO_TAB, headers=SEGUIMIENTO_HEADERS)
+    # Se lee la columna B sola (Empresa), asi que cada fila es [valor] -> r[0]
+    existentes = {r[0].strip().lower() for r in sheets.read_range(f"'{SEGUIMIENTO_TAB}'!B2:B10000") if r}
+
+    filas = []
+    for empresa, ciudad, website in sin_email:
+        if empresa.strip().lower() in existentes:
+            continue
+        formulario = detectar_formulario_contacto(website, session=session) or ""
+        filas.append([
+            datetime.now().strftime("%d/%m/%Y"), empresa, ciudad, website,
+            formulario, generar_mensaje_automatizacion(), "Indeed (automatización)",
+        ])
+    if filas:
+        sheets.write_range(f"'{SEGUIMIENTO_TAB}'!A2", filas, append=True)
+    return len(filas)
 
 
 def main(limit=10, queries=None):
@@ -92,7 +127,7 @@ def main(limit=10, queries=None):
     existentes = {r[0].strip().lower() for r in existentes_raw if r and r[0]}
     print(f"[INFO] En '{TAB}': {len(existentes)} emails")
 
-    nuevos = cazar(limit=limit, queries=queries)
+    nuevos, sin_email = cazar(limit=limit, queries=queries)
     frescos = [l for l in nuevos if l.email.lower() not in existentes]
     print(f"[INFO] Frescos: {len(frescos)}/{len(nuevos)}")
 
@@ -102,6 +137,12 @@ def main(limit=10, queries=None):
         for l in frescos:
             print(f"  [SHEETS] {l.business_name} <{l.email}>")
     print(f"[OK] Guardados: {len(frescos)}/{len(frescos)} en '{TAB}'")
+
+    if sin_email:
+        session = requests.Session()
+        n = _guardar_seguimiento_manual(sin_email, sheets, session)
+        print(f"[SEGUIMIENTO] {n} empresas sin email nuevas guardadas en '{SEGUIMIENTO_TAB}' para seguimiento manual")
+
     return len(frescos) > 0
 
 

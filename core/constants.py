@@ -46,6 +46,7 @@ EXCLUDED_COMPANIES = [
     "deloitte",
     "pwc",
     "kpmg",
+    "bdo",
 ]
 
 MARKETING_KEYWORDS = [

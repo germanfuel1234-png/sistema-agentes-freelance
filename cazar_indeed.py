@@ -263,7 +263,8 @@ def _guardar_seguimiento_manual(sin_email, sheets, session):
     from mensaje_contacto import generar_mensaje, detectar_formulario_contacto
 
     sheets.add_sheet(SEGUIMIENTO_TAB, headers=SEGUIMIENTO_HEADERS)
-    existentes = {r[1].strip().lower() for r in sheets.read_range(f"'{SEGUIMIENTO_TAB}'!B2:B10000") if r}
+    # Se lee la columna B sola (Empresa), asi que cada fila es [valor] -> r[0]
+    existentes = {r[0].strip().lower() for r in sheets.read_range(f"'{SEGUIMIENTO_TAB}'!B2:B10000") if r}
 
     filas = []
     for empresa, ciudad, website in sin_email:
