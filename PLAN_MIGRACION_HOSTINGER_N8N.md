@@ -53,19 +53,20 @@ que el flujo entero sirve tal cual se lo pensó.
 | Node.js v24 / npm | Lighthouse, y va a hacer falta para n8n/Playwright | ✅ Instalado |
 | Google Chrome | Lighthouse lo usa como navegador headless | ✅ Instalado (v151) |
 | Lighthouse (npm, en `marketin/node_modules`) | Auditoría del generador de presupuestos | ✅ Instalado y probado en vivo |
-| **Docker** | Forma estándar de correr n8n self-hosted | ❌ No instalado |
-| **n8n** | El orquestador central de todo el flujo | ❌ No instalado |
+| **Docker** | Forma estándar de correr n8n self-hosted | ❌ No instalado (necesita `sudo`, ver `n8n/README.md`) |
+| **n8n** (config Docker Compose) | El orquestador central de todo el flujo | ✅ `docker-compose.yml` + `.env` listos en [`n8n/`](n8n/) - falta instalar Docker para poder levantarlo |
 | **cloudflared** (Cloudflare Tunnel) | Exponer la PC a internet para que WhatsApp le pegue al webhook de n8n, sin abrir puertos del router | ❌ No instalado |
 | **Playwright** (para el PDF) | Exportar el HTML del presupuesto a PDF con el hero 3D renderizado | ❌ No instalado (hay una instalación de otro proyecto que no cuenta) |
 | Proveedor de WhatsApp | Recibir/mandar mensajes | ❌ Ni siquiera decidido cuál usar (ver preguntas abiertas) |
 
 **Orden sugerido para armar esto localmente:**
-1. Instalar Docker + levantar n8n en Docker Compose, local, sin exponer nada todavía.
-2. Instalar `cloudflared` y armar el túnel hacia el n8n local - recién ahí n8n tiene una URL pública real para recibir webhooks.
-3. Definir y conectar el proveedor de WhatsApp (ver pregunta abierta) contra esa URL.
-4. Ampliar el dashboard (`web/`) para cargar datos del cliente y disparar `agente_presupuesto_seo.py`.
-5. Instalar Playwright y armar el paso de exportar el HTML del presupuesto a PDF.
-6. Conectar todo el flujo en n8n: WhatsApp → aviso a Germán → carga de datos → genera presupuesto (HTML+PDF) → responde por WhatsApp.
+1. ~~Armar el `docker-compose.yml` de n8n~~ ✅ hecho (18/09) - ver [`n8n/README.md`](n8n/README.md).
+2. Instalar Docker (paso manual, requiere `sudo` - instrucciones en `n8n/README.md`) y levantar `docker compose up -d` en `n8n/`.
+3. Instalar `cloudflared` y armar el túnel hacia el n8n local - recién ahí n8n tiene una URL pública real para recibir webhooks.
+4. Definir y conectar el proveedor de WhatsApp (ver pregunta abierta) contra esa URL.
+5. Ampliar el dashboard (`web/`) para cargar datos del cliente y disparar `agente_presupuesto_seo.py`.
+6. Instalar Playwright y armar el paso de exportar el HTML del presupuesto a PDF.
+7. Conectar todo el flujo en n8n: WhatsApp → aviso a Germán → carga de datos → genera presupuesto (HTML+PDF) → responde por WhatsApp.
 
 ## Lo que YA EXISTE hoy en este repo (no arrancar de cero)
 
