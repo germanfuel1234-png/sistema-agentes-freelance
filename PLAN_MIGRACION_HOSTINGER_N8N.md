@@ -1,4 +1,4 @@
-# Plan: migrar todo a un servidor Hostinger + n8n
+# Plan: arquitectura completa con n8n (primero local, después hosting)
 
 Documento de visión para arrancar la próxima etapa del proyecto. Describe
 a dónde quiere llegar Germán y qué de lo que ya existe hoy en este repo
@@ -6,13 +6,21 @@ sirve como base, para no repetir trabajo ni perder contexto entre charlas.
 
 ## Objetivo general
 
-Mover todo el sistema (caza de empresas, envío de mails, generación de
-presupuestos) a un servidor de **Hostinger**, orquestado con **n8n**
-(herramienta de automatización de flujos con nodos - similar a Zapier
-pero self-hosteable). La idea es que deje de depender de tener una
-notebook prendida corriendo `loop_caza.py`/`loop_indeed.py` a mano, y
-que todo el flujo (buscar → contactar → armar presupuesto → notificar)
-viva en el servidor de forma continua.
+Armar todo el sistema (caza de empresas, envío de mails, generación de
+presupuestos, WhatsApp) orquestado con **n8n** (herramienta de
+automatización de flujos con nodos - similar a Zapier pero
+self-hosteable). La idea final es que el flujo completo (buscar →
+contactar → armar presupuesto → notificar) viva de forma continua sin
+depender de tener una terminal abierta a mano.
+
+**Estrategia decidida (15/09): primero local, después hosting.**
+En vez de saltar directo a levantar un VPS pago, armamos y probamos
+toda la arquitectura (n8n + WhatsApp + generador de presupuestos)
+corriendo en la PC de Germán. Recién cuando esté funcionando de punta a
+punta se evalúa mover eso a un servidor (Hostinger VPS, PC propia con
+Cloudflare Tunnel, o un free tier como Oracle Cloud - comparación al
+final de este documento). Ventaja: no se gasta un peso hasta confirmar
+que el flujo entero sirve tal cual se lo pensó.
 
 ## Flujo completo que se quiere lograr
 
@@ -36,6 +44,28 @@ viva en el servidor de forma continua.
    └─ Lo comparte por WhatsApp al cliente (nuevo - hoy no envía nada,
       solo genera el archivo)
 ```
+
+## Qué hay instalado hoy en la PC (verificado 15/09) y qué falta
+
+| Herramienta | ¿Para qué hace falta? | Estado |
+|---|---|---|
+| Python 3.12 (`venv312`) | Loops de caza, agentes | ✅ Instalado y en uso |
+| Node.js v24 / npm | Lighthouse, y va a hacer falta para n8n/Playwright | ✅ Instalado |
+| Google Chrome | Lighthouse lo usa como navegador headless | ✅ Instalado (v151) |
+| Lighthouse (npm, en `marketin/node_modules`) | Auditoría del generador de presupuestos | ✅ Instalado y probado en vivo |
+| **Docker** | Forma estándar de correr n8n self-hosted | ❌ No instalado |
+| **n8n** | El orquestador central de todo el flujo | ❌ No instalado |
+| **cloudflared** (Cloudflare Tunnel) | Exponer la PC a internet para que WhatsApp le pegue al webhook de n8n, sin abrir puertos del router | ❌ No instalado |
+| **Playwright** (para el PDF) | Exportar el HTML del presupuesto a PDF con el hero 3D renderizado | ❌ No instalado (hay una instalación de otro proyecto que no cuenta) |
+| Proveedor de WhatsApp | Recibir/mandar mensajes | ❌ Ni siquiera decidido cuál usar (ver preguntas abiertas) |
+
+**Orden sugerido para armar esto localmente:**
+1. Instalar Docker + levantar n8n en Docker Compose, local, sin exponer nada todavía.
+2. Instalar `cloudflared` y armar el túnel hacia el n8n local - recién ahí n8n tiene una URL pública real para recibir webhooks.
+3. Definir y conectar el proveedor de WhatsApp (ver pregunta abierta) contra esa URL.
+4. Ampliar el dashboard (`web/`) para cargar datos del cliente y disparar `agente_presupuesto_seo.py`.
+5. Instalar Playwright y armar el paso de exportar el HTML del presupuesto a PDF.
+6. Conectar todo el flujo en n8n: WhatsApp → aviso a Germán → carga de datos → genera presupuesto (HTML+PDF) → responde por WhatsApp.
 
 ## Lo que YA EXISTE hoy en este repo (no arrancar de cero)
 
@@ -144,22 +174,45 @@ viva en el servidor de forma continua.
    cálculo de precio, generación del HTML). n8n orquesta, Python hace
    el trabajo pesado - no reescribir toda la lógica en nodos de n8n.
 
-4. **Despliegue en Hostinger**: qué tipo de plan/servidor (VPS con
-   acceso SSH y Node.js instalado, porque Lighthouse lo necesita -
-   ver `node_modules/.bin/lighthouse` en
-   `agentes/agente_presupuesto_seo.py`), cómo se instala n8n ahí
-   (Docker es lo más común), y cómo quedan corriendo los loops de caza
-   de forma persistente (no como proceso de terminal como ahora).
+4. **Despliegue en un servidor** - **pospuesto a propósito.** Primero se
+   valida todo local (ver checklist más arriba). Recién cuando el flujo
+   completo funcione en la PC se decide dónde queda en producción - ver
+   la comparación de opciones al final de este documento.
 
 ## Preguntas para resolver en la próxima charla
 
 - ¿Qué proveedor de WhatsApp vamos a usar (oficial Meta, Twilio, u otro)?
-- ¿`agent_3_budgets.py` (Gemini) se descarta a favor de
-  `agente_presupuesto_seo.py` (Lighthouse), o se combinan?
+  Esto también define si hace falta o no un navegador headless
+  adicional corriendo siempre prendido (ver tabla de instalación).
 - ¿El envío de mails lo sigue haciendo `agent_2_send_emails.py` en
   Python, o pasa a manejarlo n8n directamente?
-- ¿Qué plan de Hostinger (necesita ser VPS, no hosting compartido,
-  para poder correr Python + Node.js + n8n con acceso SSH)?
 - ¿Los loops de búsqueda (`loop_caza.py`/`loop_indeed.py`) siguen
-  corriendo standalone en el server (systemd/PM2), o pasan a ser
-  disparados por n8n en vez de tener su propio loop infinito?
+  corriendo standalone (systemd/PM2/Docker), o pasan a ser disparados
+  por n8n en vez de tener su propio loop infinito?
+- Ya resuelto (15/09): `agente_presupuesto_seo.py` (Lighthouse) es el
+  generador definitivo - se descarta `agent_3_budgets.py` (Gemini),
+  no tiene sentido mantener los dos.
+
+## Opciones de hosting (para cuando se decida migrar de la PC)
+
+Comparación armada el 15/09, para cuando llegue el momento de decidir
+dónde queda esto en producción. Lo importante primero: **tiene que ser
+algo con acceso root/SSH** (VPS o equivalente) - el hosting compartido
+tradicional no sirve, no permite procesos en background, Docker, ni
+instalar Node/Chrome.
+
+| Opción | Costo | A favor | En contra |
+|---|---|---|---|
+| **Hostinger VPS (KVM 2)** | ~$9/mes | 2 vCPU / 8GB RAM / 100GB, siempre encendido, IP fija, sin depender de la PC/internet de casa | Tiene costo mensual |
+| **PC propia + Cloudflare Tunnel** | Gratis (+ luz) | Cero costo de hosting, control total | Se cae si se corta la luz/internet/se reinicia la PC; depende de la conexión de casa |
+| **Oracle Cloud "Always Free"** | Gratis para siempre | Generoso de verdad (hasta 4 OCPU / 24GB RAM en ARM) - alcanza cómodo para todo esto | Aprobación de cuenta puede ser difícil/lenta; hay que verificar que las imágenes Docker que se usen soporten ARM64 |
+| AWS/GCP free tier | Gratis 12 meses, después cobra (o nivel gratis permanente muy chico, ~1GB RAM) | Conocido, mucha documentación | El nivel realmente gratis para siempre no alcanza para n8n + Docker + Chrome juntos |
+| Railway/Render/Fly.io free tier | Gratis con límites | Fácil de deployar | Pensados para apps web livianas, no para procesos 24/7 con Chrome adentro (duermen la app o limitan horas de cómputo) |
+
+**Lo que realmente pesa en cualquiera de estas opciones**: los loops de
+caza y n8n en reposo son livianos. Lo pesado son los picos cuando corre
+Lighthouse (genera un presupuesto) o Playwright (genera el PDF) - cada
+uno levanta un Chrome headless completo por 20-40 segundos. Si se suma
+WhatsApp con una librería no oficial (no la API de Meta/Twilio), eso
+agrega OTRO navegador headless corriendo permanentemente - mucho más
+pesado que si se usa la API oficial (que es solo llamadas HTTP).
