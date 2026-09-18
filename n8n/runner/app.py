@@ -9,8 +9,10 @@ publicado a la LAN ni a internet) - n8n le pega por HTTP (nodo HTTP
 Request) en vez de usar Execute Command, así nunca hay ejecución de
 comandos arbitrarios expuesta.
 """
+import json
 import subprocess
 import sys
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -21,8 +23,17 @@ DATA_DIR = Path("/data")
 AGENTES_DIR = DATA_DIR / "agentes"
 PRESUPUESTO_SCRIPT = AGENTES_DIR / "agente_presupuesto_seo.py"
 OUTPUT_DIR = DATA_DIR / "presupuestos_generados"
+CREDENTIALS_FILE = DATA_DIR / "credentials.json"
+TOKEN_FILE = DATA_DIR / "token.json"
+
+PRESUPUESTOS_TAB = "presupuestos_generados"
+PRESUPUESTOS_HEADERS = [
+    "Fecha", "Cliente", "URL", "Precio Base", "Precio Total",
+    "Dias Cobertura", "Fecha Inicio Cobertura", "HTML", "PDF",
+]
 
 sys.path.insert(0, str(AGENTES_DIR))
+sys.path.insert(0, str(DATA_DIR))
 
 app = FastAPI(title="runner interno - sistema_agentes_freelance")
 
@@ -32,6 +43,15 @@ class PresupuestoRequest(BaseModel):
     url: str
     estrategia: str = "mobile"
     generar_pdf: bool = True
+    dias_cobertura: int = 30
+
+
+def _sheets_client():
+    """SheetsClient apuntando a las credenciales montadas en /data (la raiz
+    del repo). Import diferido: si algun dia falla la auth de Sheets, no
+    tira abajo /health ni /presupuesto (que igual generan el archivo)."""
+    from core.sheets_client import SheetsClient
+    return SheetsClient(credentials_file=str(CREDENTIALS_FILE), token_file=str(TOKEN_FILE))
 
 
 @app.get("/health")
@@ -79,8 +99,20 @@ def generar_presupuesto(req: PresupuestoRequest):
             "stderr": resultado.stderr[-3000:],
         })
 
-    from agente_presupuesto_seo import slugify
-    html_path = OUTPUT_DIR / f"presupuesto-{slugify(req.cliente)}.html"
+    # El script imprime una linea "RESULTADO_JSON:{...}" al final con los
+    # datos estructurados (precio, scores) - evita tener que scrapear el
+    # texto legible por humanos que imprime arriba.
+    datos = {}
+    for linea in resultado.stdout.splitlines():
+        if linea.startswith("RESULTADO_JSON:"):
+            datos = json.loads(linea[len("RESULTADO_JSON:"):])
+            break
+
+    html_path = Path(datos["archivo_html"]) if datos.get("archivo_html") else None
+    if not html_path:
+        from agente_presupuesto_seo import slugify
+        html_path = OUTPUT_DIR / f"presupuesto-{slugify(req.cliente)}.html"
+
     respuesta = {"ok": True, "stdout": resultado.stdout, "html_path": str(html_path)}
 
     if req.generar_pdf:
@@ -93,4 +125,57 @@ def generar_presupuesto(req: PresupuestoRequest):
             raise HTTPException(500, detail={"error": "el HTML se generó pero falló el PDF", "detalle": str(e)})
         respuesta["pdf_path"] = str(pdf_path)
 
+    # Registrar en la Sheet para el panel de "presupuestos generados" +
+    # cobertura. Si falla (ej. token vencido), no se pierde el presupuesto
+    # ya generado - solo se avisa en la respuesta, no se rompe todo.
+    hoy = datetime.now()
+    try:
+        sheets = _sheets_client()
+        sheets.add_sheet(PRESUPUESTOS_TAB, headers=PRESUPUESTOS_HEADERS)
+        fila = [
+            hoy.strftime("%d/%m/%Y"), req.cliente, req.url,
+            str(datos.get("precio_base", "")), str(datos.get("precio_total", "")),
+            str(req.dias_cobertura), hoy.strftime("%d/%m/%Y"),
+            str(html_path), respuesta.get("pdf_path", ""),
+        ]
+        sheets.write_range(f"'{PRESUPUESTOS_TAB}'!A2", [fila], append=True)
+        respuesta["registrado_en_sheet"] = True
+    except Exception as e:
+        respuesta["registrado_en_sheet"] = False
+        respuesta["error_sheet"] = str(e)
+
     return respuesta
+
+
+@app.get("/presupuestos")
+def listar_presupuestos():
+    """Lista los presupuestos generados, con la cobertura calculada al
+    vuelo (vigente/vencido) comparando fecha inicio + dias contra hoy -
+    no se guarda el estado, siempre se recalcula para que sea exacto."""
+    sheets = _sheets_client()
+    filas = sheets.read_range(f"'{PRESUPUESTOS_TAB}'!A2:I10000")
+    hoy = datetime.now()
+    resultado = []
+    for fila in filas:
+        if not fila or not fila[0]:
+            continue
+        fila = fila + [""] * (9 - len(fila))
+        try:
+            fecha_inicio = datetime.strptime(fila[6], "%d/%m/%Y") if fila[6] else None
+            dias = int(fila[5]) if fila[5] else 0
+        except ValueError:
+            fecha_inicio, dias = None, 0
+        vigente = None
+        vence = None
+        if fecha_inicio and dias:
+            vence = fecha_inicio + timedelta(days=dias)
+            vigente = hoy <= vence
+        resultado.append({
+            "fecha": fila[0], "cliente": fila[1], "url": fila[2],
+            "precio_base": fila[3], "precio_total": fila[4],
+            "dias_cobertura": fila[5], "fecha_inicio_cobertura": fila[6],
+            "fecha_vencimiento_cobertura": vence.strftime("%d/%m/%Y") if vence else None,
+            "cobertura_vigente": vigente,
+            "html": fila[7], "pdf": fila[8],
+        })
+    return {"presupuestos": resultado}

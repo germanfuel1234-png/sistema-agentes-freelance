@@ -311,6 +311,17 @@ def generar_presupuesto(cliente: str, url: str, estrategia: str) -> Path:
     print(f"Precio Alcance 02 (Optimización integral): {formatear_ars(precio_total)}")
     print(f"\nArchivo generado: {salida}")
     print("Revisalo antes de adjuntarlo a un mail — los precios son un punto de partida, no una tarifa final.")
+
+    # Linea final en JSON (ademas de los prints legibles de arriba) para que
+    # quien llame a este script por subprocess (ej. el runner de n8n) pueda
+    # parsear los datos sin tener que scrapear el texto humano.
+    resultado = {
+        "cliente": cliente, "url": url, "estrategia": estrategia,
+        "scores": scores, "cantidad_problemas": len(problemas),
+        "precio_base": precio_base, "precio_total": precio_total,
+        "archivo_html": str(salida),
+    }
+    print("RESULTADO_JSON:" + json.dumps(resultado))
     return salida
 
 
