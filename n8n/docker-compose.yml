@@ -60,6 +60,21 @@ services:
       timeout: 5s
       retries: 10
 
+  # Dashboard chico para cargar datos de un cliente y disparar el
+  # generador de presupuesto (le pega al runner por la red interna).
+  # Publicado solo en 127.0.0.1, igual que n8n - no expuesto a la LAN.
+  dashboard:
+    build:
+      context: ../..
+      dockerfile: sistema_agentes_freelance/n8n/dashboard/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8001:8000"
+    volumes:
+      - ../../presupuestos_generados:/data/presupuestos_generados
+    depends_on:
+      - runner
+
 volumes:
   postgres_data:
   n8n_data:
