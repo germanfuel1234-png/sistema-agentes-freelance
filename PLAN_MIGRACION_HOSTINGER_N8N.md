@@ -200,14 +200,41 @@ trabajo que generara**:
 
 ## Lo que FALTA construir (nuevo, no existe nada todavía)
 
-1. **Integración de WhatsApp** (no hay nada de esto en el repo todavía):
-   - Notificar a Germán cuando un cliente responde por WhatsApp.
-   - Mandar el HTML del presupuesto al cliente por WhatsApp
-     automáticamente.
-   - Hay que decidir el proveedor: WhatsApp Business API oficial (Meta,
-     requiere aprobación de negocio), o un intermediario tipo Twilio,
-     o el nodo nativo de WhatsApp de n8n (usa Twilio/oficial por
-     detrás). A definir en la próxima charla.
+1. **Integración de WhatsApp** - ✅ **envío probado de punta a punta (18/09)**,
+   falta la parte de recibir (necesita URL pública, ver Oracle Cloud).
+   - **Proveedor decidido**: WhatsApp Business Platform oficial de Meta
+     (Cloud API), vía el nodo nativo "WhatsApp Business Cloud" de n8n -
+     no Twilio, no librerías no oficiales. Gratis hasta 1.000
+     conversaciones de servicio por mes, sin riesgo de baneo.
+   - Se creó la app en developers.facebook.com ("automotazidormensajes"),
+     se generó el número de prueba gratis, se guardó la credencial en
+     n8n (Credentials → WhatsApp account, con el Access Token y el
+     Business Account ID).
+   - **Se mandó un mensaje real de prueba desde n8n y llegó al WhatsApp
+     real** (confirmado visualmente) - el nodo "Send template" con la
+     plantilla `hello_world` (la única que existe de verdad en la
+     cuenta - ojo, ver nota abajo) y sin parámetros.
+   - **Nota importante para la próxima vez que se toque esto**: el
+     desplegable de plantillas en n8n/Meta muestra opciones de ejemplo
+     de un negocio ficticio ("jaspers_market_order_confirmation_v1" y
+     similares) que **no existen de verdad** en la cuenta - probarlas
+     tira error de Meta ("número de parámetros no coincide"). Para ver
+     qué plantillas son reales, ir a **business.facebook.com → Administrador
+     de WhatsApp → Plantillas de mensajes → Administrar plantillas**.
+     Hoy solo existe `hello_world` (aparece como "hola_mundo" en el
+     desplegable de n8n, mismo template, nombre traducido) - fijo, sin
+     variables. Para mandar el presupuesto real con nombre de cliente,
+     hace falta **crear una plantilla nueva propia** ahí mismo (botón
+     "Crear plantilla"), con variables `{{1}}`, `{{2}}`, etc., y
+     esperar la aprobación de Meta (minutos a horas) antes de poder
+     usarla desde n8n.
+   - **Cuidado con el número argentino en el campo "recipientPhoneNumber"
+     de n8n**: hay que mandarlo **sin el "9"** después del código de país
+     (`541136239969`, no `5491136239969`) - si no, tira "número no está
+     en la lista permitida" aunque el número sí esté verificado en Meta.
+   - **Nunca pegar el Access Token en el chat con Claude** - pasó una vez
+     sin querer en esta sesión, se regeneró el token de inmediato. Va
+     directo en el campo de credenciales de n8n, nunca en otro lado.
 
 2. **Ampliar el dashboard** para que sea el panel real de carga de
    datos del cliente (hoy es solo un botón que dispara el agente).
@@ -226,17 +253,19 @@ trabajo que generara**:
 
 ## Preguntas para resolver en la próxima charla
 
-- ¿Qué proveedor de WhatsApp vamos a usar (oficial Meta, Twilio, u otro)?
-  Esto también define si hace falta o no un navegador headless
-  adicional corriendo siempre prendido (ver tabla de instalación).
 - ¿El envío de mails lo sigue haciendo `agent_2_send_emails.py` en
   Python, o pasa a manejarlo n8n directamente?
 - ¿Los loops de búsqueda (`loop_caza.py`/`loop_indeed.py`) siguen
   corriendo standalone (systemd/PM2/Docker), o pasan a ser disparados
   por n8n en vez de tener su propio loop infinito?
+- Falta crear la plantilla de WhatsApp real (con nombre del cliente y
+  link al presupuesto) en el Administrador de WhatsApp de Meta, y
+  esperar su aprobación - ver nota en la sección de WhatsApp arriba.
 - Ya resuelto (15/09): `agente_presupuesto_seo.py` (Lighthouse) es el
   generador definitivo - se descarta `agent_3_budgets.py` (Gemini),
   no tiene sentido mantener los dos.
+- Ya resuelto (18/09): proveedor de WhatsApp = Meta Cloud API oficial,
+  probado y funcionando en vivo.
 
 ## Opciones de hosting (para cuando se decida migrar de la PC)
 
