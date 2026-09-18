@@ -70,6 +70,20 @@ LAYOUT = """
            border-radius:4px; padding:14px 20px; margin:0 12px 12px 0; }}
   .stat b {{ display:block; font-size:24px; color:var(--amber); }}
   .stat span {{ font-size:12px; color:var(--text-dim); }}
+  .filtro {{ margin-top:20px; max-width:320px; }}
+  .modal-overlay {{ display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7);
+                    z-index:100; align-items:center; justify-content:center; }}
+  .modal-box {{ background:var(--surface); width:92%; max-width:900px; height:88vh;
+               border-radius:6px; display:flex; flex-direction:column; overflow:hidden;
+               border:1px solid var(--line); }}
+  .modal-header {{ display:flex; justify-content:space-between; align-items:center;
+                   padding:12px 16px; border-bottom:1px solid var(--line); flex-shrink:0; }}
+  .modal-header span {{ font-size:14px; color:var(--text-dim); }}
+  .modal-header .acciones {{ display:flex; gap:10px; align-items:center; }}
+  .modal-header a {{ font-size:13px; }}
+  .modal-header button {{ margin:0; padding:6px 12px; background:var(--surface-2);
+                          color:var(--text); font-size:13px; }}
+  #modalFrame {{ flex:1; border:none; background:#fff; width:100%; }}
 </style>
 </head>
 <body>
@@ -79,6 +93,41 @@ LAYOUT = """
 <main>
 {contenido}
 </main>
+
+<div id="modalOverlay" class="modal-overlay" onclick="if(event.target===this) cerrarModal()">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span id="modalTitulo"></span>
+      <div class="acciones">
+        <a id="modalDescargar" href="#" download>⬇ Descargar</a>
+        <button onclick="cerrarModal()">Cerrar ✕</button>
+      </div>
+    </div>
+    <iframe id="modalFrame" src="about:blank"></iframe>
+  </div>
+</div>
+
+<script>
+function abrirModal(url, titulo) {{
+  document.getElementById('modalFrame').src = url;
+  document.getElementById('modalTitulo').textContent = titulo;
+  document.getElementById('modalDescargar').href = url;
+  document.getElementById('modalOverlay').style.display = 'flex';
+}}
+function cerrarModal() {{
+  document.getElementById('modalOverlay').style.display = 'none';
+  document.getElementById('modalFrame').src = 'about:blank';
+}}
+function filtrarTabla(tablaId, texto) {{
+  const tabla = document.getElementById(tablaId);
+  if (!tabla) return;
+  const q = texto.toLowerCase();
+  tabla.querySelectorAll('tbody tr').forEach(fila => {{
+    fila.style.display = fila.textContent.toLowerCase().includes(q) ? '' : 'none';
+  }});
+}}
+document.addEventListener('keydown', e => {{ if (e.key === 'Escape') cerrarModal(); }});
+</script>
 </body>
 </html>
 """
@@ -156,9 +205,9 @@ def generar(
 
     html_name = Path(data["html_path"]).name
     pdf_name = Path(data["pdf_path"]).name if data.get("pdf_path") else None
-    links = f'<a href="/descargar/{html_name}">Ver HTML</a>'
+    links = f"<a href=\"#\" onclick=\"abrirModal('/descargar/{html_name}','{cliente} · HTML'); return false;\">Ver HTML</a>"
     if pdf_name:
-        links += f' · <a href="/descargar/{pdf_name}">Descargar PDF</a>'
+        links += f" · <a href=\"#\" onclick=\"abrirModal('/descargar/{pdf_name}','{cliente} · PDF'); return false;\">Ver PDF</a>"
     resultado = f'<div class="msg ok">Listo para <strong>{cliente}</strong>. {links}</div>'
     return render("Generar presupuesto", FORM_HTML.format(resultado=resultado), activo="/generar")
 
@@ -186,8 +235,10 @@ def ver_presupuestos():
             badge = f'<span class="badge badge-bad">Venció {p["fecha_vencimiento_cobertura"]}</span>'
         else:
             badge = '<span class="badge badge-warn">Sin datos</span>'
-        html_link = f'<a href="/descargar/{Path(p["html"]).name}">HTML</a>' if p.get("html") else "-"
-        pdf_link = f'<a href="/descargar/{Path(p["pdf"]).name}">PDF</a>' if p.get("pdf") else "-"
+        html_url = f'/descargar/{Path(p["html"]).name}' if p.get("html") else None
+        pdf_url = f'/descargar/{Path(p["pdf"]).name}' if p.get("pdf") else None
+        html_link = f"<a href=\"#\" onclick=\"abrirModal('{html_url}','{p['cliente']} · HTML'); return false;\">Ver HTML</a>" if html_url else "-"
+        pdf_link = f"<a href=\"#\" onclick=\"abrirModal('{pdf_url}','{p['cliente']} · PDF'); return false;\">Ver PDF</a>" if pdf_url else "-"
         precio = f'${int(p["precio_total"]):,}'.replace(",", ".") if p.get("precio_total") else "-"
         filas += f"""<tr>
           <td>{p['fecha']}</td><td>{p['cliente']}</td><td>{p['url']}</td>
@@ -200,17 +251,25 @@ def ver_presupuestos():
     <div class="stat"><b>{len(data)}</b><span>Total</span></div>
     <div class="stat"><b>{vigentes}</b><span>Con cobertura vigente</span></div>
     <div class="stat"><b>{vencidos}</b><span>Cobertura vencida</span></div>
-    <table>
-      <tr><th>Fecha</th><th>Cliente</th><th>Sitio</th><th>Precio</th><th>Cobertura</th><th>Estado</th><th>Archivos</th></tr>
-      {filas}
-    </table>
+    {_tabla_filtrable("tabla-presupuestos", filas, ["Fecha", "Cliente", "Sitio", "Precio", "Cobertura", "Estado", "Archivos"])}
     """
     return render("Presupuestos generados", contenido, activo="/presupuestos")
 
 
-def _tabla_simple(filas_html: str, columnas: list[str]) -> str:
+def _tabla_filtrable(tabla_id: str, filas_html: str, columnas: list[str]) -> str:
+    """Tabla con una caja de busqueda arriba que filtra filas en el cliente
+    (JS, sin recargar la pagina) - matchea contra el texto completo de la
+    fila, no columna por columna."""
+    if not filas_html:
+        return '<p class="empty">Sin datos todavía.</p>'
     encabezado = "".join(f"<th>{c}</th>" for c in columnas)
-    return f"<table><tr>{encabezado}</tr>{filas_html}</table>"
+    return f"""
+    <input type="text" class="filtro" placeholder="Filtrar..." oninput="filtrarTabla('{tabla_id}', this.value)">
+    <table id="{tabla_id}">
+      <thead><tr>{encabezado}</tr></thead>
+      <tbody>{filas_html}</tbody>
+    </table>
+    """
 
 
 @app.get("/leads", response_class=HTMLResponse)
@@ -248,14 +307,14 @@ def ver_leads():
     <div class="stat"><b>{sm['total']}</b><span>Sin email, seguimiento manual</span></div>
 
     <h2 style="margin-top:36px;font-size:16px;">Agencias con email real (últimas {len(lt['items'])} de {lt['total']})</h2>
-    {_tabla_simple(filas_lt, ["Negocio", "Email", "Ciudad", "Rubro", "Estado envío"]) if filas_lt else '<p class="empty">Sin datos todavía.</p>'}
+    {_tabla_filtrable("tabla-leads-tracking", filas_lt, ["Negocio", "Email", "Ciudad", "Rubro", "Estado envío"])}
 
     <h2 style="margin-top:36px;font-size:16px;">Automatización/RPA (últimas {len(la['items'])} de {la['total']})</h2>
-    {_tabla_simple(filas_la, ["Fecha envío", "Negocio", "Ciudad", "Rubro", "Mail", "Respondió"]) if filas_la else '<p class="empty">Sin datos todavía.</p>'}
+    {_tabla_filtrable("tabla-leads-automatizacion", filas_la, ["Fecha envío", "Negocio", "Ciudad", "Rubro", "Mail", "Respondió"])}
 
     <h2 style="margin-top:36px;font-size:16px;">Sin email - seguimiento manual (últimas {len(sm['items'])} de {sm['total']})</h2>
     <p class="empty" style="padding:0 0 8px;">Estas empresas tienen sitio real pero no se les encontró email - hay que entrar al formulario de contacto a mano.</p>
-    {_tabla_simple(filas_sm, ["Fecha", "Empresa", "Ciudad", "Sitio", "Fuente"]) if filas_sm else '<p class="empty">Sin datos todavía.</p>'}
+    {_tabla_filtrable("tabla-seguimiento-manual", filas_sm, ["Fecha", "Empresa", "Ciudad", "Sitio", "Fuente"])}
     """
     return render("Clientes / Leads", contenido, activo="/leads")
 
@@ -296,17 +355,17 @@ def ver_mails():
     <div class="stat"><b>{bandeja['total_hilos_activos']}</b><span>Hilos activos (últimos 30 días)</span></div>
 
     <h2 style="margin-top:36px;font-size:16px;color:var(--amber);">⚠ Leads esperando tu respuesta ({len(leads_sin_responder)})</h2>
-    {_tabla_simple(filas_leads, ["Negocio", "De", "Asunto", "Fecha", "Mensajes"]) if filas_leads else '<p class="empty">Ninguno pendiente - al día.</p>'}
+    {_tabla_filtrable("tabla-leads-sin-responder", filas_leads, ["Negocio", "De", "Asunto", "Fecha", "Mensajes"])}
 
     <h2 style="margin-top:36px;font-size:16px;">Leads pendientes de mandarles el primer mail (últimos {len(pend['items'][:50])} de {pend['total']})</h2>
-    {_tabla_simple(filas_pend, ["Negocio", "Email", "Ciudad"]) if filas_pend else '<p class="empty">No hay pendientes.</p>'}
+    {_tabla_filtrable("tabla-pendientes-envio", filas_pend, ["Negocio", "Email", "Ciudad"])}
 
     <h2 style="margin-top:36px;font-size:16px;">Ya respondidos ({len(ya_respondidos)})</h2>
-    {_tabla_simple(filas_ok, ["Negocio", "De", "Asunto", "Fecha", "Mensajes"]) if filas_ok else '<p class="empty">Ninguno todavía.</p>'}
+    {_tabla_filtrable("tabla-ya-respondidos", filas_ok, ["Negocio", "De", "Asunto", "Fecha", "Mensajes"])}
 
     <h2 style="margin-top:36px;font-size:16px;color:var(--text-dim);">Otros mensajes sin responder, no son leads conocidos ({len(otros_sin_responder)})</h2>
     <p class="empty" style="padding:0 0 8px;">Notificaciones, newsletters, etc. - no vienen de un lead que tengas en la Sheet.</p>
-    {_tabla_simple(filas_otros, ["-", "De", "Asunto", "Fecha", "Mensajes"]) if filas_otros else '<p class="empty">Ninguno.</p>'}
+    {_tabla_filtrable("tabla-otros-mensajes", filas_otros, ["-", "De", "Asunto", "Fecha", "Mensajes"])}
     """
     return render("Mails", contenido, activo="/mails")
 
