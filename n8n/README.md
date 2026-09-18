@@ -52,6 +52,40 @@ docker compose down         # frena y borra los contenedores (los datos
                              # no se pierden)
 ```
 
+## El servicio `runner` (Python/Chromium/Playwright)
+
+La imagen oficial de n8n es "hardened" - no tiene Python, Chrome, ni
+gestor de paquetes adentro (a propósito, por seguridad). Por eso hay un
+**tercer contenedor**, `runner`, con su propia imagen (Python + Node +
+Chromium + Playwright) que expone una API HTTP mínima para correr los
+scripts pesados del proyecto. Nunca se publica a la LAN ni a internet -
+solo es alcanzable *dentro* de la red interna de Docker Compose.
+
+Desde un nodo **HTTP Request** en n8n (nunca `Execute Command`):
+
+```
+POST http://runner:8000/presupuesto
+Content-Type: application/json
+
+{
+  "cliente": "Nombre del cliente",
+  "url": "https://sitio.com",
+  "estrategia": "mobile"
+}
+```
+
+Devuelve `{"ok": true, "stdout": "..."}` y deja el HTML generado en
+`presupuestos_generados/` (accesible en el host tal cual, no solo
+adentro del contenedor - está montado como volumen).
+
+Chequeo rápido de que está vivo: `GET http://runner:8000/health`.
+
+**Nota**: los archivos que genera el `runner` (los HTML de
+`presupuestos_generados/`) quedan con dueño `root` en el host, porque
+el contenedor corre como root por dentro. No es un problema de
+seguridad (es tu propia PC), pero si querés borrarlos/editarlos a mano
+puede hacer falta `sudo`.
+
 ## Cuando se arme el túnel de Cloudflare (Fase 2)
 
 Editar `.env`: cambiar `N8N_HOST`, `N8N_PROTOCOL` y `WEBHOOK_URL` por

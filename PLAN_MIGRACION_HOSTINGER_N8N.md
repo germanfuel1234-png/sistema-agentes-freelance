@@ -61,12 +61,49 @@ que el flujo entero sirve tal cual se lo pensó.
 
 **Orden sugerido para armar esto localmente:**
 1. ~~Armar el `docker-compose.yml` de n8n~~ ✅ hecho (18/09) - ver [`n8n/README.md`](n8n/README.md).
-2. Instalar Docker (paso manual, requiere `sudo` - instrucciones en `n8n/README.md`) y levantar `docker compose up -d` en `n8n/`.
-3. Instalar `cloudflared` y armar el túnel hacia el n8n local - recién ahí n8n tiene una URL pública real para recibir webhooks.
-4. Definir y conectar el proveedor de WhatsApp (ver pregunta abierta) contra esa URL.
-5. Ampliar el dashboard (`web/`) para cargar datos del cliente y disparar `agente_presupuesto_seo.py`.
-6. Instalar Playwright y armar el paso de exportar el HTML del presupuesto a PDF.
-7. Conectar todo el flujo en n8n: WhatsApp → aviso a Germán → carga de datos → genera presupuesto (HTML+PDF) → responde por WhatsApp.
+2. ~~Instalar Docker~~ ✅ hecho (18/09).
+3. ~~Decidir cómo n8n corre los scripts de Python~~ ✅ decidido (18/09) - ver
+   sección "n8n ↔ Python" más abajo: **contenedor `runner` separado**, sin
+   SSH y sin tocar la imagen oficial de n8n.
+4. Instalar `cloudflared` y armar el túnel hacia el n8n local - recién ahí n8n tiene una URL pública real para recibir webhooks.
+5. Definir y conectar el proveedor de WhatsApp (ver pregunta abierta) contra esa URL.
+6. Ampliar el dashboard (`web/`) para cargar datos del cliente y disparar `agente_presupuesto_seo.py` (vía el `runner`, ver abajo).
+7. Sumar el endpoint de PDF en el `runner` (Playwright ya está instalado ahí).
+8. Conectar todo el flujo en n8n: WhatsApp → aviso a Germán → carga de datos → genera presupuesto (HTML+PDF) → responde por WhatsApp.
+
+### n8n ↔ Python: contenedor `runner` separado (decidido 18/09)
+
+La imagen oficial de n8n es **"hardened"** (Docker Hardened Images) - a
+propósito no tiene Python, Chrome, ni siquiera un gestor de paquetes
+(`apk`/`apt`) adentro. Eso descarta instalarle cosas directo. Se evaluaron
+3 opciones y German eligió la de **mayor seguridad, sin importar el
+trabajo que generara**:
+
+- ❌ SSH (n8n → PC por SSH): descartado - aunque quede solo en loopback
+  y nunca se exponga a internet, sigue siendo un servicio de red más
+  (`sshd`) corriendo permanentemente, con sus propias claves para
+  gestionar.
+- ❌ Instalar Python/Chrome directo en la imagen de n8n: **no es
+  posible** - la imagen hardened no tiene gestor de paquetes.
+- ✅ **Contenedor `runner` aparte** ([`n8n/runner/`](n8n/runner/)): un
+  segundo contenedor, con su propia imagen (`node:20-bookworm-slim` +
+  Python + Chromium + Playwright), que expone una API HTTP mínima
+  (FastAPI) con endpoints como `POST /presupuesto`. La imagen de n8n
+  queda intacta - cero paquetes nuevos, cero superficie de ataque
+  agregada ahí. El `runner` **no publica ningún puerto** a la LAN ni a
+  internet, solo es alcanzable *dentro* de la red interna de Docker
+  Compose - n8n le pega por `http://runner:8000` con el nodo nativo
+  **HTTP Request** (nunca `Execute Command`, que permite correr
+  comandos arbitrarios).
+- El `runner` monta la raíz del proyecto (`marketin/`) completa como
+  volumen de solo trabajo en `/data` - ve `agentes/`,
+  `presupuestos_generados/`, `sistema_agentes_freelance/`, etc. tal
+  cual están en el host.
+- Ya reutiliza el `lighthouse` que está instalado en `marketin/node_modules`
+  (no hace falta reinstalarlo adentro de la imagen - llega solo, montado
+  vía el volumen); Chromium y Playwright sí se instalan dentro de la
+  imagen del `runner` porque un navegador real no es portable por un
+  simple mount de archivos.
 
 ## Lo que YA EXISTE hoy en este repo (no arrancar de cero)
 

@@ -42,6 +42,24 @@ services:
       postgres:
         condition: service_healthy
 
+  # Contenedor aparte con Python/Node/Chromium/Playwright, para todo lo
+  # que la imagen oficial de n8n (hardened, sin gestor de paquetes) no
+  # puede correr. No se publica ningún puerto a la LAN ni a internet -
+  # solo n8n le habla por HTTP dentro de la red interna de Compose
+  # (http://runner:8000), nunca con Execute Command ni SSH.
+  runner:
+    build:
+      context: ../..
+      dockerfile: sistema_agentes_freelance/n8n/runner/Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ../..:/data
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
 volumes:
   postgres_data:
   n8n_data:
