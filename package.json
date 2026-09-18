@@ -1,0 +1,9 @@
+{
+  "name": "sistema-agentes-freelance-tools",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Dependencia de Lighthouse usada por agentes/agente_presupuesto_seo.py para auditar SEO/performance.",
+  "dependencies": {
+    "lighthouse": "^13.4.1"
+  }
+}

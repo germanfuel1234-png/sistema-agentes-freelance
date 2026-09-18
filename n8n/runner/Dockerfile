@@ -4,7 +4,7 @@
 # esto corre en un contenedor separado, solo alcanzable desde la red
 # interna de Docker Compose.
 #
-# Build context = raíz del proyecto (marketin/), ver docker-compose.yml.
+# Build context = raíz de sistema_agentes_freelance/, ver docker-compose.yml.
 FROM node:20-bookworm-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -17,12 +17,12 @@ ENV CHROME_PATH=/usr/bin/chromium
 
 WORKDIR /app
 
-COPY sistema_agentes_freelance/requirements.txt /app/requirements.txt
+COPY requirements.txt /app/requirements.txt
 RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt \
     && pip3 install --no-cache-dir --break-system-packages playwright \
     && playwright install --with-deps chromium
 
-COPY sistema_agentes_freelance/n8n/runner/app.py /app/app.py
+COPY n8n/runner/app.py /app/app.py
 
 EXPOSE 8000
 CMD ["python3", "-m", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]

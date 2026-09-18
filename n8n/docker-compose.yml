@@ -49,11 +49,11 @@ services:
   # (http://runner:8000), nunca con Execute Command ni SSH.
   runner:
     build:
-      context: ../..
-      dockerfile: sistema_agentes_freelance/n8n/runner/Dockerfile
+      context: ..
+      dockerfile: n8n/runner/Dockerfile
     restart: unless-stopped
     volumes:
-      - ../..:/data
+      - ..:/data
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 10s
@@ -65,13 +65,13 @@ services:
   # Publicado solo en 127.0.0.1, igual que n8n - no expuesto a la LAN.
   dashboard:
     build:
-      context: ../..
-      dockerfile: sistema_agentes_freelance/n8n/dashboard/Dockerfile
+      context: ..
+      dockerfile: n8n/dashboard/Dockerfile
     restart: unless-stopped
     ports:
       - "127.0.0.1:8001:8000"
     volumes:
-      - ../../presupuestos_generados:/data/presupuestos_generados
+      - ../presupuestos_generados:/data/presupuestos_generados
     depends_on:
       - runner
 

@@ -48,3 +48,11 @@ nuevos_leads_para_sheet.csv
 planilla_public.csv
 STOP.loop
 STOP_indeed.loop
+
+# Node (Lighthouse, usado por agentes/agente_presupuesto_seo.py)
+node_modules/
+package-lock.json
+
+# Salidas generadas por el generador de presupuestos (se regeneran solas)
+lighthouse_reports/
+presupuestos_generados/

@@ -1,0 +1,206 @@
+{
+  "meta-description": {
+    "categoria": "SEO",
+    "problema": "Falta la meta descripción",
+    "descripcion": "La página no tiene una etiqueta meta description. Es el texto que Google muestra debajo del título en los resultados de búsqueda — sin ella, Google elige un fragmento al azar del contenido.",
+    "solucion": "Redactamos una meta descripción de 120-155 caracteres por página, orientada a mejorar el click-through desde resultados de búsqueda."
+  },
+  "document-title": {
+    "categoria": "SEO",
+    "problema": "Título de página ausente o poco descriptivo",
+    "descripcion": "El <title> de la página no describe bien el contenido. Es uno de los factores de SEO on-page con más peso, y lo primero que ve el usuario en la pestaña del navegador y en Google.",
+    "solucion": "Definimos títulos únicos y descriptivos por página, con las palabras clave relevantes al inicio."
+  },
+  "link-text": {
+    "categoria": "SEO",
+    "problema": "Enlaces con texto poco descriptivo (\"click acá\", \"leer más\")",
+    "descripcion": "Los enlaces sin texto descriptivo son peores para SEO y para accesibilidad (lectores de pantalla). Google usa el texto del enlace para entender de qué trata la página destino.",
+    "solucion": "Reescribimos los textos de enlace para que describan el destino."
+  },
+  "is-crawlable": {
+    "categoria": "SEO",
+    "problema": "La página está bloqueada para los buscadores",
+    "descripcion": "Hay una directiva (robots meta tag o header HTTP) que le indica a Google que no indexe esta página. Si es involuntario, la página nunca va a aparecer en resultados de búsqueda.",
+    "solucion": "Revisamos y corregimos las directivas de indexación para que Google pueda rastrear e indexar el sitio."
+  },
+  "hreflang": {
+    "categoria": "SEO",
+    "problema": "Configuración de idioma/región (hreflang) inválida",
+    "descripcion": "Las etiquetas hreflang mal configuradas pueden hacer que Google muestre la versión incorrecta del sitio según el idioma/país del usuario.",
+    "solucion": "Corregimos las etiquetas hreflang para que cada versión de idioma se indexe correctamente."
+  },
+  "canonical": {
+    "categoria": "SEO",
+    "problema": "URL canónica inválida o ausente",
+    "descripcion": "Sin una URL canónica correcta, Google puede indexar versiones duplicadas de la misma página (con y sin \"www\", con parámetros, etc.) y diluir el posicionamiento.",
+    "solucion": "Configuramos URLs canónicas correctas en todas las páginas."
+  },
+  "image-alt": {
+    "categoria": "SEO / Accesibilidad",
+    "problema": "Imágenes sin texto alternativo (alt)",
+    "descripcion": "Las imágenes sin atributo alt no aportan a SEO de imágenes y son invisibles para usuarios con lectores de pantalla.",
+    "solucion": "Agregamos texto alternativo descriptivo a todas las imágenes relevantes del sitio."
+  },
+  "http-status-code": {
+    "categoria": "SEO",
+    "problema": "La página devuelve un código de error HTTP",
+    "descripcion": "Un código de estado de error (4xx/5xx) impide que Google indexe la página correctamente.",
+    "solucion": "Corregimos la respuesta del servidor para que devuelva un código 200 válido."
+  },
+  "viewport": {
+    "categoria": "SEO / Mobile",
+    "problema": "Falta la etiqueta viewport para dispositivos móviles",
+    "descripcion": "Sin la meta etiqueta viewport, el sitio no se adapta correctamente a pantallas de celular — Google penaliza esto en el ranking mobile-first.",
+    "solucion": "Agregamos la configuración de viewport responsive correcta."
+  },
+  "font-size": {
+    "categoria": "SEO / Mobile",
+    "problema": "Tamaño de fuente ilegible en mobile",
+    "descripcion": "Textos por debajo de 12px obligan al usuario a hacer zoom en el celular, lo que afecta la experiencia y el ranking mobile de Google.",
+    "solucion": "Ajustamos los tamaños de fuente para que sean legibles sin zoom en dispositivos móviles."
+  },
+  "tap-targets": {
+    "categoria": "SEO / Mobile",
+    "problema": "Botones y enlaces demasiado juntos para tocar en mobile",
+    "descripcion": "Elementos táctiles muy pequeños o pegados generan clics accidentales en celular, lo que empeora la experiencia de usuario.",
+    "solucion": "Ajustamos el tamaño y espaciado de botones y enlaces para uso táctil."
+  },
+  "structured-data": {
+    "categoria": "SEO",
+    "problema": "Falta de datos estructurados (Schema.org)",
+    "descripcion": "Sin datos estructurados, Google no puede mostrar resultados enriquecidos (rich snippets: estrellas, precios, horarios) en los resultados de búsqueda.",
+    "solucion": "Implementamos marcado Schema.org relevante para el rubro (negocio local, producto, artículo, etc.)."
+  },
+  "unminified-css": {
+    "categoria": "Performance",
+    "problema": "CSS sin minificar",
+    "descripcion": "Los archivos de estilos se cargan sin comprimir, lo que aumenta el tiempo de carga innecesariamente.",
+    "solucion": "Minificamos y comprimimos los archivos CSS del sitio."
+  },
+  "unminified-javascript": {
+    "categoria": "Performance",
+    "problema": "JavaScript sin minificar",
+    "descripcion": "Los scripts se cargan sin comprimir, aumentando el tiempo de descarga y de procesamiento en el navegador.",
+    "solucion": "Minificamos y comprimimos los archivos JavaScript del sitio."
+  },
+  "unused-javascript": {
+    "categoria": "Performance",
+    "problema": "JavaScript sin usar cargándose igual",
+    "descripcion": "El sitio descarga código JavaScript que no se utiliza en esa página, lo que retrasa la carga sin necesidad.",
+    "solucion": "Eliminamos o dividimos el código para cargar solo el JavaScript necesario en cada página."
+  },
+  "unused-css-rules": {
+    "categoria": "Performance",
+    "problema": "CSS sin usar cargándose igual",
+    "descripcion": "Se cargan reglas de estilo que no se aplican a la página actual, sumando peso innecesario.",
+    "solucion": "Depuramos las hojas de estilo para cargar solo el CSS necesario por página."
+  },
+  "render-blocking-resources": {
+    "categoria": "Performance",
+    "problema": "Recursos que bloquean el renderizado inicial",
+    "descripcion": "Ciertos archivos CSS/JS impiden que el navegador muestre contenido hasta que terminen de descargarse, retrasando la primera impresión visual del sitio.",
+    "solucion": "Diferimos o priorizamos la carga de esos recursos para que el sitio se vea antes."
+  },
+  "uses-optimized-images": {
+    "categoria": "Performance",
+    "problema": "Imágenes sin optimizar",
+    "descripcion": "Las imágenes se sirven en un formato o calidad más pesada de lo necesario, alargando el tiempo de carga.",
+    "solucion": "Comprimimos y optimizamos las imágenes del sitio (formatos modernos, compresión adecuada)."
+  },
+  "uses-responsive-images": {
+    "categoria": "Performance",
+    "problema": "Imágenes no adaptadas al tamaño de pantalla",
+    "descripcion": "Se envía la misma imagen en alta resolución a todos los dispositivos, incluso a celulares con pantallas chicas.",
+    "solucion": "Implementamos imágenes responsive que se adaptan al tamaño real de cada dispositivo."
+  },
+  "uses-text-compression": {
+    "categoria": "Performance",
+    "problema": "Archivos de texto sin compresión (gzip/brotli)",
+    "descripcion": "El servidor no comprime HTML/CSS/JS antes de enviarlos, lo que aumenta el tiempo de transferencia.",
+    "solucion": "Configuramos compresión gzip/brotli a nivel de servidor."
+  },
+  "mainthread-work-breakdown": {
+    "categoria": "Performance",
+    "problema": "Exceso de trabajo en el hilo principal del navegador",
+    "descripcion": "El navegador tarda demasiado en procesar JavaScript, lo que puede hacer que la página se sienta lenta o \"trabada\" al interactuar.",
+    "solucion": "Optimizamos y reorganizamos el JavaScript para reducir la carga de procesamiento."
+  },
+  "largest-contentful-paint": {
+    "categoria": "Performance",
+    "problema": "Tiempo de carga del contenido principal alto (LCP)",
+    "descripcion": "El elemento más grande visible (imagen o texto principal) tarda demasiado en aparecer — es una de las métricas Core Web Vitals de Google.",
+    "solucion": "Optimizamos la carga del contenido principal (imágenes, fuentes, servidor) para reducir este tiempo."
+  },
+  "cumulative-layout-shift": {
+    "categoria": "Performance",
+    "problema": "El contenido se mueve mientras carga la página (CLS)",
+    "descripcion": "Elementos que cambian de posición mientras la página termina de cargar generan una mala experiencia (clics accidentales, texto que salta) — también es una métrica Core Web Vitals.",
+    "solucion": "Reservamos el espacio correcto para imágenes y elementos dinámicos antes de que carguen."
+  },
+  "total-blocking-time": {
+    "categoria": "Performance",
+    "problema": "Tiempo de bloqueo alto antes de que el sitio responda a clics (TBT)",
+    "descripcion": "Después de que el sitio se ve cargado, tarda en responder a la primera interacción del usuario (clic, tap).",
+    "solucion": "Reducimos y reorganizamos el JavaScript que bloquea la interactividad inicial."
+  },
+  "color-contrast": {
+    "categoria": "Accesibilidad",
+    "problema": "Contraste de color insuficiente",
+    "descripcion": "El contraste entre texto y fondo no cumple el mínimo recomendado, dificultando la lectura a usuarios con baja visión.",
+    "solucion": "Ajustamos la paleta de colores para cumplir los niveles de contraste accesibles."
+  },
+  "link-in-text-block": {
+    "categoria": "Accesibilidad",
+    "problema": "Enlaces distinguibles solo por color",
+    "descripcion": "Los enlaces dentro de párrafos se diferencian solo por el color, lo que dificulta identificarlos para usuarios con daltonismo.",
+    "solucion": "Agregamos subrayado u otro indicador visual además del color."
+  },
+  "aria-dialog-name": {
+    "categoria": "Accesibilidad",
+    "problema": "Ventanas emergentes (modales) sin nombre accesible",
+    "descripcion": "Los elementos de tipo diálogo no tienen un nombre que los lectores de pantalla puedan anunciar al usuario.",
+    "solucion": "Agregamos etiquetas ARIA descriptivas a los diálogos/modales del sitio."
+  },
+  "is-on-https": {
+    "categoria": "Buenas prácticas",
+    "problema": "El sitio no usa HTTPS",
+    "descripcion": "Sin certificado SSL, los navegadores marcan el sitio como \"No seguro\" y Google lo penaliza en el ranking.",
+    "solucion": "Instalamos y configuramos certificado SSL/HTTPS en el hosting."
+  },
+  "render-blocking-insight": {
+    "categoria": "Performance",
+    "problema": "Recursos que bloquean el renderizado inicial",
+    "descripcion": "Ciertos archivos CSS/JS impiden que el navegador muestre contenido hasta que terminen de descargarse, retrasando la primera impresión visual del sitio.",
+    "solucion": "Diferimos o priorizamos la carga de esos recursos para que el sitio se vea antes."
+  },
+  "cache-insight": {
+    "categoria": "Performance",
+    "problema": "Archivos sin tiempo de caché configurado",
+    "descripcion": "Los recursos estáticos (imágenes, CSS, JS) se vuelven a descargar en cada visita porque no tienen un tiempo de caché definido en el servidor.",
+    "solucion": "Configuramos cabeceras de caché para que los navegadores reutilicen archivos ya descargados en visitas repetidas."
+  },
+  "network-dependency-tree": {
+    "categoria": "Performance",
+    "problema": "Cadena de dependencias de red muy larga",
+    "descripcion": "Varios archivos se cargan uno detrás del otro en cadena antes de que la página pueda mostrarse, sumando demoras acumuladas.",
+    "solucion": "Reducimos y reordenamos la cadena de recursos críticos para que carguen en paralelo cuando sea posible."
+  },
+  "uses-long-cache-ttl": {
+    "categoria": "Performance",
+    "problema": "Archivos sin tiempo de caché configurado",
+    "descripcion": "Los recursos estáticos (imágenes, CSS, JS) se vuelven a descargar en cada visita porque no tienen un tiempo de caché definido en el servidor.",
+    "solucion": "Configuramos cabeceras de caché para que los navegadores reutilicen archivos ya descargados en visitas repetidas."
+  },
+  "errors-in-console": {
+    "categoria": "Buenas prácticas",
+    "problema": "Errores de JavaScript en la consola del navegador",
+    "descripcion": "El sitio genera errores de script que pueden romper funcionalidades (formularios, botones, animaciones) sin que se note a simple vista.",
+    "solucion": "Depuramos los errores de JavaScript detectados."
+  },
+  "deprecations": {
+    "categoria": "Buenas prácticas",
+    "problema": "Uso de tecnologías web obsoletas",
+    "descripcion": "El sitio usa APIs o funciones que los navegadores van a dejar de soportar, lo que puede romper el sitio en el futuro.",
+    "solucion": "Actualizamos el código para usar las alternativas modernas recomendadas."
+  }
+}

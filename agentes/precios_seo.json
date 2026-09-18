@@ -1,0 +1,13 @@
+{
+  "_nota": "Config editable a mano. precio_base_ars es el piso del Alcance 01 (Corrección puntual). Por cada problema adicional detectado se suma precio_por_problema_ars, hasta el tope precio_base_max_ars. El Alcance 02 (Optimización integral) se calcula como precio base final x multiplicador_total.",
+  "precio_base_ars": 150000,
+  "precio_por_problema_ars": 25000,
+  "precio_base_max_ars": 450000,
+  "multiplicador_total": 2.2,
+  "items_incluidos_alcance_total_extra": [
+    "Re-auditoría con Lighthouse post-entrega para verificar mejora de score",
+    "Optimización de imágenes y compresión de archivos en todo el sitio",
+    "Configuración de datos estructurados (Schema.org) básicos",
+    "Informe final con capturas de antes/después"
+  ]
+}
