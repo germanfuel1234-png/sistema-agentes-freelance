@@ -65,7 +65,14 @@ que el flujo entero sirve tal cual se lo pensó.
 3. ~~Decidir cómo n8n corre los scripts de Python~~ ✅ decidido (18/09) - ver
    sección "n8n ↔ Python" más abajo: **contenedor `runner` separado**, sin
    SSH y sin tocar la imagen oficial de n8n.
-4. Instalar `cloudflared` y armar el túnel hacia el n8n local - recién ahí n8n tiene una URL pública real para recibir webhooks.
+4. ~~Instalar `cloudflared` y armar el túnel hacia el n8n local~~ **descartado (18/09)** -
+   se decidió no exponer la PC local a internet con un túnel. En vez de
+   eso, cuando haga falta una URL pública real (para el webhook de
+   WhatsApp), se migra directo a **Oracle Cloud Free Tier** (ver
+   comparación de hosting más abajo) en vez de tunelear la PC de casa.
+   Hasta entonces, todo lo que se prueba localmente (como el nodo HTTP
+   Request contra el `runner`) no necesita ninguna URL pública - es
+   tráfico interno entre contenedores, nunca sale a internet.
 5. Definir y conectar el proveedor de WhatsApp (ver pregunta abierta) contra esa URL.
 6. Ampliar el dashboard (`web/`) para cargar datos del cliente y disparar `agente_presupuesto_seo.py` (vía el `runner`, ver abajo).
 7. Sumar el endpoint de PDF en el `runner` (Playwright ya está instalado ahí).
