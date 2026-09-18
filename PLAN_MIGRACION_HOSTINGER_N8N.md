@@ -22,14 +22,23 @@ Cloudflare Tunnel, o un free tier como Oracle Cloud - comparación al
 final de este documento). Ventaja: no se gasta un peso hasta confirmar
 que el flujo entero sirve tal cual se lo pensó.
 
+**Todo unificado en una sola carpeta (18/09).** Antes el proyecto estaba
+repartido entre dos repos git (`marketin/` para `agentes/` y
+`presupuestos_generados/`, y `sistema_agentes_freelance/` para el resto).
+Se movió todo a `sistema_agentes_freelance/` - **esta carpeta es ahora
+el único lugar que hace falta clonar/copiar al servidor el día de la
+migración**. Contiene: los loops de caza, `send_loop.py` (envío de
+mails), `agentes/` (generador de presupuestos con Lighthouse), todo
+`n8n/` (docker-compose, runner, dashboard), y `presupuestos_generados/`.
+
 ## Flujo completo que se quiere lograr
 
 ```
 1. BUSCAR EMPRESAS (ya existe, corre en loop)
    └─ cazar_brave.py / cazar_indeed.py / caza_programador.py
 
-2. MANDAR MAIL (ya existe el agente, falta activarlo en el server)
-   └─ agent_2_send_emails.py
+2. MANDAR MAIL (ya existe y corre standalone, falta activarlo en el server)
+   └─ send_loop.py
 
 3. EL CLIENTE RESPONDE POR WHATSAPP (nuevo)
    └─ Notificación a Germán de que hay una respuesta
@@ -129,20 +138,29 @@ trabajo que generara**:
   server sin mucho cambio - el punto a resolver es cómo mantenerlo vivo
   ahí (systemd service, PM2, cron, o que n8n lo dispare por webhook/CLI).
 
-### Envío de mails - agente ya armado, no sé si activo en producción
+### Envío de mails - hay DOS implementaciones, la real es send_loop.py
+- [`send_loop.py`](send_loop.py) - **este es el que se usa de verdad**
+  (agregado 18/09, antes vivía suelto en `~/Descargas`, ahora parte del
+  repo). Envía 1 mail cada 5 min (+ jitter) al primer lead PENDIENTE de
+  la Sheet con email válido: arma el texto personalizado con Gemini,
+  manda por Gmail, marca "Enviado" en la Sheet. Reutiliza
+  `core/sheets_client.py`, `services/gmail_service.py`,
+  `services/gemini_service.py`. Uso: `python send_loop.py` (loop
+  infinito) o `--once` (un solo envío) o `--dry-run` (no manda nada,
+  solo muestra el preview).
 - [`agents/agent_2_send_emails.py`](agents/agent_2_send_emails.py) -
-  clase `Agent2SendEmails`, parte del framework de agentes original
-  (`agents/agent_0` a `agent_4`).
-- **Para migrar**: revisar si esto está probado con envíos reales o
-  quedó a mitad de camino. Definir si el envío lo sigue haciendo este
-  script en Python o si conviene que n8n mande el mail directamente
-  (n8n tiene nodo nativo de Gmail/SMTP) y este script solo arma el
-  contenido.
+  clase `Agent2SendEmails`, parte del framework de agentes viejo
+  (`agents/agent_0` a `agent_4`) - **no se usa**, `send_loop.py` lo
+  reemplaza. No tiene sentido mantener los dos, igual que pasó con los
+  dos generadores de presupuesto.
+- **Para migrar**: `send_loop.py` ya corre standalone igual que
+  `loop_caza.py`/`loop_indeed.py` - mismo patrón de despliegue
+  (systemd/PM2/Docker en el server, a definir).
 
 ### Generador de presupuesto con diagnóstico Lighthouse - YA FUNCIONA
-- [`agentes/agente_presupuesto_seo.py`](../agentes/agente_presupuesto_seo.py)
-  (ojo: está en `marketin/agentes/`, no dentro de
-  `sistema_agentes_freelance/`). Esto es prácticamente lo que pediste:
+- [`agentes/agente_presupuesto_seo.py`](agentes/agente_presupuesto_seo.py)
+  (movido acá el 18/09, antes estaba en `marketin/agentes/`). Esto es
+  prácticamente lo que pediste:
   - Corre una auditoría **real de Lighthouse** sobre la URL del cliente.
   - Mapea los problemas encontrados a texto en español
     (`agentes/lighthouse_mapeo.json`).
@@ -253,7 +271,7 @@ trabajo que generara**:
 
 ## Preguntas para resolver en la próxima charla
 
-- ¿El envío de mails lo sigue haciendo `agent_2_send_emails.py` en
+- ¿El envío de mails lo sigue haciendo `send_loop.py` standalone en
   Python, o pasa a manejarlo n8n directamente?
 - ¿Los loops de búsqueda (`loop_caza.py`/`loop_indeed.py`) siguen
   corriendo standalone (systemd/PM2/Docker), o pasan a ser disparados
