@@ -208,9 +208,56 @@ def ver_presupuestos():
     return render("Presupuestos generados", contenido, activo="/presupuestos")
 
 
+def _tabla_simple(filas_html: str, columnas: list[str]) -> str:
+    encabezado = "".join(f"<th>{c}</th>" for c in columnas)
+    return f"<table><tr>{encabezado}</tr>{filas_html}</table>"
+
+
 @app.get("/leads", response_class=HTMLResponse)
 def ver_leads():
-    return render("Clientes / Leads", "<h1>Clientes / Leads</h1><p class='empty'>Próximamente.</p>", activo="/leads")
+    try:
+        r = httpx.get(f"{RUNNER_URL}/leads", params={"limite": 50}, timeout=30)
+        data = r.json()
+    except Exception as e:
+        return render("Clientes / Leads", f'<h1>Clientes / Leads</h1><div class="msg error">No se pudo leer la Sheet: {e}</div>', activo="/leads")
+
+    lt = data.get("leads_tracking", {"total": 0, "items": []})
+    la = data.get("leads_automatizacion", {"total": 0, "items": []})
+    sm = data.get("seguimiento_manual", {"total": 0, "items": []})
+
+    filas_lt = "".join(
+        f"<tr><td>{x['negocio']}</td><td>{x['email']}</td><td>{x['ciudad']}</td>"
+        f"<td>{x['rubro']}</td><td>{x['estado_envio']}</td></tr>"
+        for x in lt["items"]
+    )
+    filas_la = "".join(
+        f"<tr><td>{x['fecha_envio']}</td><td>{x['negocio']}</td><td>{x['ciudad']}</td>"
+        f"<td>{x['rubro']}</td><td>{x['mail']}</td><td>{x['respondio']}</td></tr>"
+        for x in la["items"]
+    )
+    filas_sm = "".join(
+        f"<tr><td>{x['fecha']}</td><td>{x['empresa']}</td><td>{x['ciudad']}</td>"
+        f"<td><a href=\"{x['sitio']}\" target=\"_blank\">{x['sitio']}</a></td><td>{x['fuente']}</td></tr>"
+        for x in sm["items"]
+    )
+
+    contenido = f"""
+    <h1>Clientes / Leads</h1>
+    <div class="stat"><b>{lt['total']}</b><span>Agencias con email (leads_tracking)</span></div>
+    <div class="stat"><b>{la['total']}</b><span>Automatización/RPA (leads_automatizacion)</span></div>
+    <div class="stat"><b>{sm['total']}</b><span>Sin email, seguimiento manual</span></div>
+
+    <h2 style="margin-top:36px;font-size:16px;">Agencias con email real (últimas {len(lt['items'])} de {lt['total']})</h2>
+    {_tabla_simple(filas_lt, ["Negocio", "Email", "Ciudad", "Rubro", "Estado envío"]) if filas_lt else '<p class="empty">Sin datos todavía.</p>'}
+
+    <h2 style="margin-top:36px;font-size:16px;">Automatización/RPA (últimas {len(la['items'])} de {la['total']})</h2>
+    {_tabla_simple(filas_la, ["Fecha envío", "Negocio", "Ciudad", "Rubro", "Mail", "Respondió"]) if filas_la else '<p class="empty">Sin datos todavía.</p>'}
+
+    <h2 style="margin-top:36px;font-size:16px;">Sin email - seguimiento manual (últimas {len(sm['items'])} de {sm['total']})</h2>
+    <p class="empty" style="padding:0 0 8px;">Estas empresas tienen sitio real pero no se les encontró email - hay que entrar al formulario de contacto a mano.</p>
+    {_tabla_simple(filas_sm, ["Fecha", "Empresa", "Ciudad", "Sitio", "Fuente"]) if filas_sm else '<p class="empty">Sin datos todavía.</p>'}
+    """
+    return render("Clientes / Leads", contenido, activo="/leads")
 
 
 @app.get("/mails", response_class=HTMLResponse)

@@ -179,3 +179,49 @@ def listar_presupuestos():
             "html": fila[7], "pdf": fila[8],
         })
     return {"presupuestos": resultado}
+
+
+@app.get("/leads")
+def listar_leads(limite: int = 100):
+    """Junta las 3 pestañas de leads en una sola respuesta:
+    leads_tracking.csv (agencias con email real, vía loop_caza.py),
+    leads_automatizacion (vía loop_indeed.py, ángulo automatización/RPA),
+    seguimiento_manual (empresas reales sin email, revisión a mano).
+    `limite` corta cada lista a los N más recientes para no mandar miles
+    de filas de una - el dashboard solo necesita un vistazo reciente."""
+    sheets = _sheets_client()
+
+    leads_tracking = []
+    for lead in sheets.get_all_leads():
+        leads_tracking.append({
+            "negocio": lead.business_name, "email": lead.email, "ciudad": lead.city,
+            "pais": lead.country, "rubro": lead.industry,
+            "estado_envio": lead.send_status.value if lead.send_status else "",
+            "fuente": lead.source,
+        })
+
+    leads_automatizacion = []
+    for f in sheets.read_range("'leads_automatizacion'!A2:L10000"):
+        if not f or not f[0]:
+            continue
+        f = f + [""] * (9 - len(f))
+        leads_automatizacion.append({
+            "fecha_envio": f[0], "negocio": f[1], "track": f[2], "rubro": f[3],
+            "ciudad": f[4], "mail": f[6], "respondio": f[8] if len(f) > 8 else "",
+        })
+
+    seguimiento_manual = []
+    for f in sheets.read_range("'seguimiento_manual'!A2:G10000"):
+        if not f or not f[0]:
+            continue
+        f = f + [""] * (7 - len(f))
+        seguimiento_manual.append({
+            "fecha": f[0], "empresa": f[1], "ciudad": f[2], "sitio": f[3],
+            "formulario": f[4], "fuente": f[6],
+        })
+
+    return {
+        "leads_tracking": {"total": len(leads_tracking), "items": leads_tracking[-limite:][::-1]},
+        "leads_automatizacion": {"total": len(leads_automatizacion), "items": leads_automatizacion[-limite:][::-1]},
+        "seguimiento_manual": {"total": len(seguimiento_manual), "items": seguimiento_manual[-limite:][::-1]},
+    }
