@@ -143,6 +143,69 @@ class GmailService:
             logger.error(f"❌ Error inesperado: {e}")
             return None
     
+    def estado_bandeja_entrada(self, dias: int = 30, max_hilos: int = 80) -> list[dict]:
+        """Recorre los hilos con actividad reciente en la bandeja de entrada
+        (usa gmail.readonly, ya autorizado - no manda ni modifica nada) y
+        para cada uno indica si el ULTIMO mensaje es nuestro (ya respondimos,
+        tiene label SENT) o del remitente (falta responder).
+
+        Una sola query de listado + un get por hilo unico - pensado para un
+        volumen chico/mediano (decenas de hilos), no miles.
+        """
+        import re as _re
+
+        try:
+            resultados = []
+            hilos_vistos = set()
+            query = f"in:inbox newer_than:{dias}d"
+            page_token = None
+
+            while len(hilos_vistos) < max_hilos:
+                resp = self.service.users().messages().list(
+                    userId="me", q=query, pageToken=page_token, maxResults=50
+                ).execute()
+                mensajes = resp.get("messages", [])
+                if not mensajes:
+                    break
+
+                for m in mensajes:
+                    thread_id = m["threadId"]
+                    if thread_id in hilos_vistos:
+                        continue
+                    hilos_vistos.add(thread_id)
+
+                    hilo = self.service.users().threads().get(
+                        userId="me", id=thread_id, format="metadata",
+                        metadataHeaders=["From", "Subject", "Date"],
+                    ).execute()
+                    msgs_hilo = hilo.get("messages", [])
+                    if not msgs_hilo:
+                        continue
+                    ultimo = msgs_hilo[-1]
+                    headers = {h["name"]: h["value"] for h in ultimo["payload"].get("headers", [])}
+                    de = headers.get("From", "")
+                    match = _re.search(r"[\w\.\-]+@[\w\.\-]+", de)
+                    remitente = match.group(0).lower() if match else de
+
+                    resultados.append({
+                        "remitente": remitente,
+                        "asunto": headers.get("Subject", ""),
+                        "fecha": headers.get("Date", ""),
+                        "falta_responder": "SENT" not in ultimo.get("labelIds", []),
+                        "cantidad_mensajes": len(msgs_hilo),
+                    })
+                    if len(hilos_vistos) >= max_hilos:
+                        break
+
+                page_token = resp.get("nextPageToken")
+                if not page_token:
+                    break
+
+            return resultados
+        except Exception as e:
+            logger.error(f"❌ Error leyendo bandeja de entrada: {e}")
+            return []
+
     def get_user_email(self) -> Optional[str]:
         """Obtiene el email del usuario autenticado."""
         try:

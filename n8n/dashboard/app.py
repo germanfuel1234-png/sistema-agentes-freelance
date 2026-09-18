@@ -262,7 +262,53 @@ def ver_leads():
 
 @app.get("/mails", response_class=HTMLResponse)
 def ver_mails():
-    return render("Mails", "<h1>Mails</h1><p class='empty'>Próximamente.</p>", activo="/mails")
+    try:
+        r = httpx.get(f"{RUNNER_URL}/mails/estado", params={"dias": 30}, timeout=60)
+        data = r.json()
+    except Exception as e:
+        return render("Mails", f'<h1>Mails</h1><div class="msg error">No se pudo leer Gmail/Sheets: {e}</div>', activo="/mails")
+
+    pend = data.get("pendientes_de_enviar", {"total": 0, "items": []})
+    bandeja = data.get("bandeja_entrada", {"total_hilos_activos": 0, "faltan_responder": 0, "items": []})
+
+    hilos = bandeja["items"]
+    leads_sin_responder = [h for h in hilos if h["falta_responder"] and h["es_lead_conocido"]]
+    otros_sin_responder = [h for h in hilos if h["falta_responder"] and not h["es_lead_conocido"]]
+    ya_respondidos = [h for h in hilos if not h["falta_responder"]]
+
+    def _fila_hilo(h):
+        return (f"<tr><td>{h['negocio'] or '-'}</td><td>{h['remitente']}</td>"
+                f"<td>{h['asunto']}</td><td>{h['fecha']}</td><td>{h['cantidad_mensajes']}</td></tr>")
+
+    filas_leads = "".join(_fila_hilo(h) for h in leads_sin_responder)
+    filas_otros = "".join(_fila_hilo(h) for h in otros_sin_responder)
+    filas_ok = "".join(_fila_hilo(h) for h in ya_respondidos)
+
+    filas_pend = "".join(
+        f"<tr><td>{x['negocio']}</td><td>{x['email']}</td><td>{x['ciudad']}</td></tr>"
+        for x in pend["items"][:50]
+    )
+
+    contenido = f"""
+    <h1>Mails</h1>
+    <div class="stat"><b>{pend['total']}</b><span>Leads con email, falta mandar</span></div>
+    <div class="stat"><b>{len(leads_sin_responder)}</b><span>Leads que te respondieron, falta que contestes</span></div>
+    <div class="stat"><b>{bandeja['total_hilos_activos']}</b><span>Hilos activos (últimos 30 días)</span></div>
+
+    <h2 style="margin-top:36px;font-size:16px;color:var(--amber);">⚠ Leads esperando tu respuesta ({len(leads_sin_responder)})</h2>
+    {_tabla_simple(filas_leads, ["Negocio", "De", "Asunto", "Fecha", "Mensajes"]) if filas_leads else '<p class="empty">Ninguno pendiente - al día.</p>'}
+
+    <h2 style="margin-top:36px;font-size:16px;">Leads pendientes de mandarles el primer mail (últimos {len(pend['items'][:50])} de {pend['total']})</h2>
+    {_tabla_simple(filas_pend, ["Negocio", "Email", "Ciudad"]) if filas_pend else '<p class="empty">No hay pendientes.</p>'}
+
+    <h2 style="margin-top:36px;font-size:16px;">Ya respondidos ({len(ya_respondidos)})</h2>
+    {_tabla_simple(filas_ok, ["Negocio", "De", "Asunto", "Fecha", "Mensajes"]) if filas_ok else '<p class="empty">Ninguno todavía.</p>'}
+
+    <h2 style="margin-top:36px;font-size:16px;color:var(--text-dim);">Otros mensajes sin responder, no son leads conocidos ({len(otros_sin_responder)})</h2>
+    <p class="empty" style="padding:0 0 8px;">Notificaciones, newsletters, etc. - no vienen de un lead que tengas en la Sheet.</p>
+    {_tabla_simple(filas_otros, ["-", "De", "Asunto", "Fecha", "Mensajes"]) if filas_otros else '<p class="empty">Ninguno.</p>'}
+    """
+    return render("Mails", contenido, activo="/mails")
 
 
 @app.get("/descargar/{nombre_archivo}")

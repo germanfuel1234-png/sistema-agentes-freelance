@@ -54,6 +54,14 @@ def _sheets_client():
     return SheetsClient(credentials_file=str(CREDENTIALS_FILE), token_file=str(TOKEN_FILE))
 
 
+def _gmail_service():
+    """GmailService apuntando al token_gmail.json montado en /data - ya
+    tiene permiso de lectura (gmail.readonly) ademas de envio, no hace
+    falta pedir autorizacion de nuevo."""
+    from services.gmail_service import GmailService
+    return GmailService(credentials_file=str(CREDENTIALS_FILE), token_file=str(DATA_DIR / "token_gmail.json"))
+
+
 @app.get("/health")
 def health():
     return {"status": "ok", "script_presupuesto_existe": PRESUPUESTO_SCRIPT.exists()}
@@ -224,4 +232,38 @@ def listar_leads(limite: int = 100):
         "leads_tracking": {"total": len(leads_tracking), "items": leads_tracking[-limite:][::-1]},
         "leads_automatizacion": {"total": len(leads_automatizacion), "items": leads_automatizacion[-limite:][::-1]},
         "seguimiento_manual": {"total": len(seguimiento_manual), "items": seguimiento_manual[-limite:][::-1]},
+    }
+
+
+@app.get("/mails/estado")
+def estado_mails(dias: int = 30):
+    """Resumen de mails: cuántos leads con email real todavía no recibieron
+    nada (send_status distinto de "Enviado"), y estado de la bandeja de
+    entrada real (hilos recientes, marcando cuáles quedaron sin responder
+    de nuestra parte). Cruza el remitente de cada hilo contra los leads
+    conocidos para decir si es un lead identificado o no."""
+    sheets = _sheets_client()
+    todos = sheets.get_all_leads()
+
+    pendientes_envio = [
+        {"negocio": l.business_name, "email": l.email, "ciudad": l.city}
+        for l in todos
+        if l.email and "@" in l.email and (not l.send_status or l.send_status.value != "Enviado")
+    ]
+    emails_contactados = {l.email.lower(): l.business_name for l in todos if l.email}
+
+    hilos = _gmail_service().estado_bandeja_entrada(dias=dias)
+    for h in hilos:
+        h["es_lead_conocido"] = h["remitente"] in emails_contactados
+        h["negocio"] = emails_contactados.get(h["remitente"], "")
+
+    faltan_responder = [h for h in hilos if h["falta_responder"]]
+
+    return {
+        "pendientes_de_enviar": {"total": len(pendientes_envio), "items": pendientes_envio[:100]},
+        "bandeja_entrada": {
+            "total_hilos_activos": len(hilos),
+            "faltan_responder": len(faltan_responder),
+            "items": sorted(hilos, key=lambda h: not h["falta_responder"]),
+        },
     }
