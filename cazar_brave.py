@@ -147,14 +147,45 @@ def _pais_de_query(q):
         return "Rosario, Argentina"
     if "buenos aires" in ql:
         return "Buenos Aires, Argentina"
+    # --- mercados de habla inglesa (EEUU, Canada) ---
+    if "new york" in ql:
+        return "New York, United States"
+    if "los angeles" in ql:
+        return "Los Angeles, United States"
+    if "chicago" in ql:
+        return "Chicago, United States"
+    if "miami" in ql:
+        return "Miami, United States"
+    if "austin" in ql:
+        return "Austin, United States"
+    if "texas" in ql:
+        return "Texas, United States"
+    if "california" in ql:
+        return "California, United States"
+    if "boston" in ql:
+        return "Boston, United States"
+    if "seattle" in ql:
+        return "Seattle, United States"
+    if "united states" in ql or " usa " in f" {ql} " or ql.endswith("usa") or "estados unidos" in ql:
+        return "United States"
+    if "toronto" in ql:
+        return "Toronto, Canada"
+    if "vancouver" in ql:
+        return "Vancouver, Canada"
+    if "canada" in ql or "canadá" in ql:
+        return "Canada"
     return "Argentina"
 
 # ccTLD -> pais real. Se usa para verificar/corregir el pais de _pais_de_query:
 # el buscador a veces ignora la ciudad/pais pedido en la query y devuelve
 # resultados de otro lado (ej: pedis "Madrid" y te trae un .com.ar).
+# .us/.ca son mucho menos usados por negocios reales que .com (la mayoria
+# de EEUU/Canada usa .com), asi que esto pesa poco para esos dos - la
+# deteccion real de esos mercados pasa por _pais_de_query (la query en si).
 _TLD_A_PAIS = {
     "es": "España", "ar": "Argentina", "mx": "México", "co": "Colombia",
     "cl": "Chile", "pe": "Perú", "uy": "Uruguay",
+    "us": "United States", "ca": "Canada",
 }
 
 
@@ -173,6 +204,10 @@ _RELEVANT_KEYWORDS = [
     "agencia", "marketing", "publicidad", "community manager", "comunicacion",
     "comunicación", "branding", "diseño", "diseno", "creativ", "medios",
     "media", "digital", "freelance", "seo", "redes sociales", "social media",
+    # ingles (EEUU/Canada) - los terminos ya compartidos arriba (marketing,
+    # branding, digital, creativ, media, freelance, seo, social media)
+    # cubren bastante solos; estos suman lo que falta en ingles puro.
+    "agency", "advertising", "web design", "design studio", "graphic design",
 ]
 # "community" solo (sin "manager") matcheaba "Microsoft Community" y otros
 # foros de soporte genéricos - probado en vivo, esa palabra sola dejaba
@@ -184,6 +219,9 @@ _IRRELEVANT_SIGNALS = [
     "noticias", "diario", "periodico", "periódico", "agencia de viajes",
     "agencia de empleo", "agencia tributaria", "gobierno", "ministerio",
     "universidad", "municipalidad", "ayuntamiento", ".gob.", "wikipedia",
+    # ingles
+    "news", "newspaper", "travel agency", "employment agency", "government",
+    ".gov", "university", "city hall", "department of", "chamber of commerce",
 ]
 
 
@@ -339,7 +377,13 @@ def cazar(limit=2, queries=None):
             seen.add(domain)
             nombre = _clean_name(title, link)
             pais = _pais_real(domain, _pais_de_query(q))
-            lead = Lead(business_name=nombre, email=email.lower(), track=TrackType.MARKETING, industry="Agencia de marketing digital", city=pais, country="", website=link, source=motor)
+            # country=pais (antes quedaba "" siempre): no se persiste en la
+            # Sheet (to_sheet_row()/_row_to_lead() no tienen columna Pais),
+            # pero queda bien poblado en el objeto en memoria. La señal que
+            # SI sobrevive el viaje a la Sheet y vuelta es `city` (columna
+            # "Ciudad") - por eso core/constants.es_mercado_ingles() se
+            # llama con city, no con country, desde send_loop.py.
+            lead = Lead(business_name=nombre, email=email.lower(), track=TrackType.MARKETING, industry="Agencia de marketing digital", city=pais, country=pais, website=link, source=motor)
             if svc.validate_lead(lead):
                 leads.append(lead)
                 print("  [REAL] %s | %s | %s" % (lead.business_name, lead.email, lead.website))

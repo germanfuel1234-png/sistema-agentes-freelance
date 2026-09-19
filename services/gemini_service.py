@@ -30,84 +30,104 @@ class GeminiService:
             except Exception as e:
                 logger.warning(f"⚠️  Gemini API no disponible, usando templates: {e}")
     
-    def generate_email_for_lead(self, 
+    def generate_email_for_lead(self,
                                lead_name: str,
                                business_name: str,
                                industry: str,
                                specific_note: str = "",
-                               template: str = "pymes") -> str:
+                               template: str = "pymes",
+                               idioma: str = "es",
+                               formato: str = "plain") -> str:
         """
         Genera body de mail personalizado.
-        
+
         Args:
             lead_name: Nombre de la persona
             business_name: Nombre del negocio
             industry: Rubro (restaurante, inmobiliaria, etc.)
             specific_note: Algo específico del negocio que viste
             template: "pymes" o "marketing"
-        
+            idioma: "es" o "en" - decide en que idioma se redacta el mail
+                (ver core.constants.es_mercado_ingles, usado por quien
+                llama a esta funcion para decidirlo segun la ubicacion
+                del lead)
+            formato: "plain" o "html" - "html" solo tiene efecto con
+                idioma="en" (para el link real a "portfolio"); usar junto
+                con Email.html_body, ver GmailService.send_email.
+
         Returns:
             Body del mail generado
         """
         if self.client:
             return self._generate_with_api(
-                lead_name, business_name, industry, specific_note, template
+                lead_name, business_name, industry, specific_note, template, idioma, formato
             )
         else:
             return self._generate_with_template(
-                lead_name, business_name, industry, specific_note, template
+                lead_name, business_name, industry, specific_note, template, idioma, formato
             )
-    
-    def _generate_with_api(self, lead_name, business_name, industry, 
-                          specific_note, template) -> str:
+
+    def _generate_with_api(self, lead_name, business_name, industry,
+                          specific_note, template, idioma="es", formato="plain") -> str:
         """Genera con Gemini API (cuando esté disponible)."""
         try:
-            prompt = f"""
-            Eres Germán Rodríguez, desarrollador web freelance.
-            
-            Genera un email simple y directo para {lead_name}.
-            
-            El email DEBE seguir este formato exacto:
-            
-            Hola {{nombre}},
-            
-            Soy Germán Rodríguez, desarrollador web freelance. Trabajo con agencias y freelancers de marketing armando las webs, landings y sistemas
-            
-            Te comparto mi página web:
-            https://germanrodriguez.ar/
-            
-            Si en algún momento tenés un desarrollo que necesiten resolver, me encantaría ser esa opción.
-            
-            Saludos,
-            Germán Rodríguez
-            
-            NO incluyas firma detallada - la firma se agregará automáticamente.
-            Personaliza solo con el nombre de {lead_name}.
-            Devuelve SOLO el body del mail.
-            """
-            
+            if idioma == "en":
+                return self._generate_with_template(
+                    lead_name, business_name, industry, specific_note, template, idioma, formato
+                )
+            else:
+                prompt = f"""
+                Eres Germán Rodríguez, desarrollador web freelance.
+
+                Genera un email simple y directo para {lead_name}.
+
+                El email DEBE seguir este formato exacto:
+
+                Hola {{nombre}},
+
+                Soy Germán Rodríguez, desarrollador web freelance. Trabajo con agencias y freelancers de marketing armando las webs, landings y sistemas
+
+                Te comparto mi página web:
+                https://germanrodriguez.ar/
+
+                Si en algún momento tenés un desarrollo que necesiten resolver, me encantaría ser esa opción.
+
+                Saludos,
+                Germán Rodríguez
+
+                NO incluyas firma detallada - la firma se agregará automáticamente.
+                Personaliza solo con el nombre de {lead_name}.
+                Devuelve SOLO el body del mail.
+                """
+
             response = self.client.generate_content(prompt)
             return response.text
-        
+
         except Exception as e:
             logger.warning(f"Error con Gemini, fallback a template: {e}")
             return self._generate_with_template(
-                lead_name, business_name, industry, specific_note, template
+                lead_name, business_name, industry, specific_note, template, idioma, formato
             )
-    
+
     def _generate_with_template(self, lead_name, business_name, industry,
-                               specific_note, template) -> str:
+                               specific_note, template, idioma="es", formato="plain") -> str:
         """
         Fallback: genera desde template.
-        
+
         ⚠️  IMPORTANTE: NO incluye firma aquí
         La firma se agrega automáticamente en GmailService.send_email()
         (igual que cuando redactas un mail en Gmail manualmente)
         """
-        
-        # Mismo formato para todos los leads - simple y directo
-        # Personalización con fallback: nombre de contacto -> nombre de
-        # empresa -> "Argentina" (nunca dejar "Hola None," o "Hola ,")
+
+        # El template en inglés es fijo (sin {nombre}) - así lo pidió el
+        # cliente explícitamente, no se personaliza con lead_name/business_name.
+        # formato="html" usa el link real a "portfolio" y negritas (ver
+        # Email.html_body en GmailService.send_email); "plain" es el
+        # fallback sin formato. Una sola fuente de verdad en constants.py.
+        if idioma == "en":
+            from core.constants import EMAIL_TEMPLATE_BODY_EN_HTML, EMAIL_TEMPLATE_BODY_EN_PLAIN
+            return EMAIL_TEMPLATE_BODY_EN_HTML if formato == "html" else EMAIL_TEMPLATE_BODY_EN_PLAIN
+
         recipient_name = lead_name or business_name or "Argentina"
 
         return f"""Hola {recipient_name},

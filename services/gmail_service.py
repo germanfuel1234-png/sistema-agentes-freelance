@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Optional, Tuple
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.application import MIMEApplication
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -112,7 +113,15 @@ class GmailService:
         try:
             # IMPORTANTE: Agregar firma automáticamente
             # Igual que cuando redactas un email en Gmail manualmente
-            body_with_signature, subtype = self._add_signature_to_body(email.body)
+            #
+            # Si email.html_body viene seteado (ej. para tener un link real
+            # con texto tipo "portfolio" en vez del URL pelado), se manda
+            # ese como HTML sin escapar - email.body sigue siendo el
+            # fallback de texto plano que exige el modelo.
+            if email.html_body:
+                body_with_signature, subtype = self._add_signature_to_body(email.html_body, ya_es_html=True)
+            else:
+                body_with_signature, subtype = self._add_signature_to_body(email.body)
             
             # Construye mensaje MIME
             message = MIMEText(body_with_signature, subtype)
@@ -142,7 +151,41 @@ class GmailService:
         except Exception as e:
             logger.error(f"❌ Error inesperado: {e}")
             return None
-    
+
+    def send_email_con_adjunto(self, to: str, subject: str, body: str, adjunto_path: str) -> Optional[str]:
+        """Igual que send_email pero con un archivo adjunto (ej. el PDF del
+        presupuesto) - usa MIMEMultipart en vez de MIMEText simple."""
+        try:
+            body_with_signature, subtype = self._add_signature_to_body(body)
+
+            message = MIMEMultipart()
+            message["To"] = to
+            message["Subject"] = subject
+            message.attach(MIMEText(body_with_signature, subtype))
+
+            ruta = Path(adjunto_path)
+            with open(ruta, "rb") as f:
+                parte = MIMEApplication(f.read(), _subtype=ruta.suffix.lstrip(".") or "octet-stream")
+            parte.add_header("Content-Disposition", "attachment", filename=ruta.name)
+            message.attach(parte)
+
+            raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
+            result = self.service.users().messages().send(
+                userId="me",
+                body={"raw": raw_message}
+            ).execute()
+
+            message_id = result.get("id")
+            logger.info(f"✅ Mail con adjunto enviado a {to} (ID: {message_id})")
+            return message_id
+
+        except HttpError as e:
+            logger.error(f"❌ Error enviando mail con adjunto a {to}: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"❌ Error inesperado enviando adjunto: {e}")
+            return None
+
     def estado_bandeja_entrada(self, dias: int = 30, max_hilos: int = 80) -> list[dict]:
         """Recorre los hilos con actividad reciente en la bandeja de entrada
         (usa gmail.readonly, ya autorizado - no manda ni modifica nada) y
@@ -188,6 +231,7 @@ class GmailService:
                     remitente = match.group(0).lower() if match else de
 
                     resultados.append({
+                        "thread_id": thread_id,
                         "remitente": remitente,
                         "asunto": headers.get("Subject", ""),
                         "fecha": headers.get("Date", ""),
@@ -241,14 +285,24 @@ class GmailService:
             logger.debug(f"ℹ️  No se pudo obtener firma de Gmail: {e}")
             return None
     
-    def _add_signature_to_body(self, body: str) -> Tuple[str, str]:
+    def _add_signature_to_body(self, body: str, ya_es_html: bool = False) -> Tuple[str, str]:
         """
         Agrega la firma al body del email.
         Intenta obtener la firma de Gmail, si no existe usa la firma por defecto.
-        
+
+        Args:
+            ya_es_html: True si `body` ya viene armado como HTML (ej. con
+                un <a href> real, como el link a "portfolio") - en ese caso
+                NO se escapa, se manda tal cual.
+
         Returns:
             Tuple (body_con_firma, tipo_mime)
         """
+        if ya_es_html:
+            gmail_signature = self.get_user_signature()
+            firma_html = gmail_signature or html.escape(EMAIL_SIGNATURE).replace("\n", "<br>")
+            return f"{body}<br><br>{firma_html}", "html"
+
         # Intenta obtener firma de Gmail
         gmail_signature = self.get_user_signature()
         if gmail_signature:
@@ -256,6 +310,6 @@ class GmailService:
             # Convertimos el cuerpo de texto a HTML para que renderice correctamente.
             body_html = html.escape(body).replace("\n", "<br>")
             return f"{body_html}<br><br>{gmail_signature}", "html"
-        
+
         # Si no hay firma en Gmail, usa la firma por defecto
         return f"{body}\n\n{EMAIL_SIGNATURE}", "plain"
