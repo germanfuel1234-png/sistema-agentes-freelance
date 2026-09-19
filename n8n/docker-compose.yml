@@ -51,6 +51,7 @@ services:
     build:
       context: ..
       dockerfile: n8n/runner/Dockerfile
+    image: sistema-agentes-runner:latest
     restart: unless-stopped
     volumes:
       - ..:/data
@@ -59,6 +60,58 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+
+  # Los 4 scripts de loop, containerizados para el despliegue en
+  # servidor (antes corrian sueltos en la PC via terminal). Reusan la
+  # MISMA imagen que runner (mismo Dockerfile: Python+Playwright+Chromium
+  # ya instalados) - no hace falta buildear una imagen nueva por cada
+  # uno, solo cambia el `command`. restart:unless-stopped porque el
+  # sentido de mudarse al servidor es que corran solos, sin depender de
+  # que la PC de casa este prendida.
+  loop_caza:
+    image: sistema-agentes-runner:latest
+    restart: unless-stopped
+    working_dir: /data
+    command: ["python3", "/data/loop_caza.py"]
+    volumes:
+      - ..:/data
+    depends_on:
+      - runner
+
+  send_loop:
+    image: sistema-agentes-runner:latest
+    restart: unless-stopped
+    working_dir: /data
+    command: ["python3", "/data/send_loop.py"]
+    volumes:
+      - ..:/data
+    depends_on:
+      - runner
+
+  postular_formularios:
+    image: sistema-agentes-runner:latest
+    restart: unless-stopped
+    working_dir: /data
+    command: ["python3", "/data/postular_formularios.py", "--intervalo", "5"]
+    volumes:
+      - ..:/data
+    depends_on:
+      - runner
+
+  # Requiere que linkedin_session.json ya exista en /data (correr
+  # linkedin_login_setup.py A MANO primero - necesita ventana grafica,
+  # no se puede hacer dentro de este contenedor headless). Si el archivo
+  # todavia no esta, el script no rompe: loguea el error en cada ciclo y
+  # sigue esperando, sin crashear el contenedor.
+  buscar_postulaciones_linkedin:
+    image: sistema-agentes-runner:latest
+    restart: unless-stopped
+    working_dir: /data
+    command: ["python3", "/data/buscar_postulaciones_linkedin.py", "--intervalo", "60"]
+    volumes:
+      - ..:/data
+    depends_on:
+      - runner
 
   # Dashboard chico para cargar datos de un cliente y disparar el
   # generador de presupuesto (le pega al runner por la red interna).
