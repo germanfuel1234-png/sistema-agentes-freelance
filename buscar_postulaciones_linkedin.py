@@ -86,11 +86,51 @@ def _hay_checkpoint(page) -> bool:
         return False
 
 
+def _extraer_autor(texto: str) -> str:
+    """La primera línea del bloque es un label genérico ("Publicación en
+    el feed") en esta versión de la UI de LinkedIn - el autor es la
+    primera línea real después de eso."""
+    lineas = [l.strip() for l in texto.splitlines() if l.strip()]
+    if lineas and lineas[0].lower().startswith(("publicaci", "post in")):
+        lineas = lineas[1:]
+    return lineas[0] if lineas else "?"
+
+
+def _obtener_link_post(page, item) -> str:
+    """LinkedIn ya no deja un <a href> directo al post en el HTML de
+    resultados (UI nueva, "SDUI", con clases ofuscadas que cambian solas) -
+    el único lugar donde da un permalink real es el menú "..." de la
+    publicación -> "Copiar enlace a la publicación", que lo deja en el
+    portapapeles. Por eso hace falta requestear permisos de clipboard al
+    crear el browser context."""
+    try:
+        boton_menu = item.locator(
+            'button[aria-label*="menú de controles" i], button[aria-label*="control menu" i], '
+            'button[aria-label*="more options" i], button[aria-label*="más opciones" i]'
+        ).first
+        boton_menu.click(timeout=4000)
+        page.wait_for_timeout(800)
+        page.get_by_role("menuitem", name=re.compile("copiar enlace|copy link", re.IGNORECASE)).click(timeout=4000)
+        page.wait_for_timeout(800)
+        link = page.evaluate("navigator.clipboard.readText()")
+        return (link or "").strip()
+    except Exception as e:
+        print(f"    (no se pudo copiar el link: {e})")
+        return ""
+    finally:
+        try:
+            page.keyboard.press("Escape")
+        except Exception:
+            pass
+
+
 def _buscar_keyword(page, keyword: str) -> list[dict]:
     """Busca UNA keyword en el buscador de publicaciones de LinkedIn,
     filtrado a las últimas 24hs, y devuelve los posts visibles en la
     primera pantalla (sin scrollear infinito - más lento pero más
-    discreto)."""
+    discreto). No pide el link acá todavía (es caro, involucra abrir un
+    menú y leer el portapapeles) - eso se hace después, solo para los
+    que pasan el filtro de "oferta de trabajo real" en ciclo()."""
     from urllib.parse import quote
 
     url = (
@@ -110,41 +150,20 @@ def _buscar_keyword(page, keyword: str) -> list[dict]:
         page.wait_for_timeout(random.uniform(1500, 2500))
 
     resultados = []
-    # Cada post real tiene un link a /posts/ o /feed/update/ - se ancla en
-    # eso en vez de una clase CSS (las clases de LinkedIn son generadas y
-    # cambian seguido, un href con ese patrón es mucho más estable).
-    links = page.locator('a[href*="/posts/"], a[href*="/feed/update/"]')
-    vistos = set()
-    n = links.count()
+    # role="listitem" es la señal más estable para "esto es un post" en la
+    # UI actual - las clases CSS son hashes generados que cambian solos
+    # (ej. "_646798e5"), no sirven como ancla.
+    items = page.locator('[role="listitem"]')
+    n = items.count()
     for i in range(min(n, 25)):
-        link = links.nth(i)
+        item = items.nth(i)
         try:
-            href = link.get_attribute("href") or ""
+            texto = item.inner_text(timeout=3000)
         except Exception:
             continue
-        href = href.split("?")[0]
-        if not href or href in vistos:
-            continue
-        vistos.add(href)
-
-        try:
-            contenedor = link.locator(
-                "xpath=ancestor::div[contains(@class,'feed-shared-update-v2') or contains(@class,'occludable-update')][1]"
-            )
-            if contenedor.count() == 0:
-                contenedor = link.locator("xpath=ancestor::li[1]")
-            texto = contenedor.first.inner_text(timeout=3000) if contenedor.count() else ""
-        except Exception:
-            texto = ""
-
         if not texto:
             continue
-
-        # El autor suele ser la primera línea no vacía del bloque.
-        lineas = [l.strip() for l in texto.splitlines() if l.strip()]
-        autor = lineas[0] if lineas else "?"
-
-        resultados.append({"url": href, "texto": texto, "autor": autor, "keyword": keyword})
+        resultados.append({"item": item, "texto": texto, "autor": _extraer_autor(texto), "keyword": keyword})
 
     return resultados
 
@@ -163,7 +182,7 @@ def ciclo(sheets: SheetsClient) -> int:
     nuevos = []
     with sync_playwright() as p:
         browser = p.chromium.launch()
-        context = browser.new_context(storage_state=SESSION_FILE)
+        context = browser.new_context(storage_state=SESSION_FILE, permissions=["clipboard-read", "clipboard-write"])
         page = context.new_page()
 
         try:
@@ -176,13 +195,14 @@ def ciclo(sheets: SheetsClient) -> int:
                     break
 
                 for post in posts:
-                    if post["url"] in existentes:
-                        continue
                     if not _es_oferta_de_trabajo(post["texto"]):
                         continue
-                    existentes.add(post["url"])
-                    nuevos.append(post)
-                    print(f"  [MATCH] {post['autor']} - {post['url']}")
+                    link = _obtener_link_post(page, post["item"])
+                    if not link or link in existentes:
+                        continue
+                    existentes.add(link)
+                    nuevos.append({"autor": post["autor"], "texto": post["texto"], "url": link, "keyword": kw})
+                    print(f"  [MATCH] {post['autor']} - {link}")
 
                 if idx < len(KEYWORDS) - 1:
                     time.sleep(random.uniform(15, 30))  # pausa entre keywords, nada de ráfaga
