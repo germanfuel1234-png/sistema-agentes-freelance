@@ -29,6 +29,8 @@ from datetime import datetime
 sys.path.insert(0, os.path.dirname(__file__))
 
 from config.settings import Settings
+from core.constants import EMAIL_SUBJECT_EN, es_mercado_ingles
+from core.heartbeat import reportar_heartbeat
 from core.models import Email, SendStatus
 from core.sheets_client import SheetsClient
 from services.gmail_service import GmailService
@@ -36,12 +38,25 @@ from services.gemini_service import GeminiService
 
 
 STOP = False
+# Igual que loop_caza.py/postular_formularios.py - permite frenar el loop
+# escribiendo un archivo, sin necesidad de mandar una señal al proceso
+# (necesario para poder pararlo desde el dashboard sin importar si corre
+# en el host o lanzado por el runner en Docker - ambos ven el mismo /data).
+STOP_FILE = os.path.join(os.path.dirname(__file__), "STOP_send.loop")
 
 
 def _handle_stop(signum, frame):
     global STOP
     print("\n⏹️  Señal de stop recibida, terminando después del envío actual...")
     STOP = True
+
+
+def _dentro_de_horario_laboral() -> bool:
+    """Lunes a viernes, 7-18hs. El script corre directo en el host (no en
+    Docker), así que datetime.now() ya usa la hora local de Argentina, sin
+    necesidad de conversión de timezone."""
+    ahora = datetime.now()
+    return ahora.weekday() < 5 and 7 <= ahora.hour < 18
 
 
 def parse_args() -> argparse.Namespace:
@@ -80,6 +95,8 @@ async def send_one(dry_run: bool = False) -> bool:
     gmail = GmailService('credentials.json', 'token_gmail.json')
     gemini = GeminiService()
 
+    reportar_heartbeat(sheets, "send_loop", detalle="dry_run" if dry_run else "")
+
     leads = sheets.get_all_leads()
     if not leads:
         print("No hay leads en la Sheet")
@@ -99,18 +116,39 @@ async def send_one(dry_run: bool = False) -> bool:
           f"{target_lead.business_name} | {target_lead.industry}")
 
     industry = target_lead.industry or ""
+    # `city` es donde realmente queda la ubicación del lead al volver de la
+    # Sheet (el campo `country` no tiene columna propia y no sobrevive el
+    # viaje - ver nota en cazar_brave.py), por eso se detecta el idioma
+    # a partir de ahí.
+    idioma = "en" if es_mercado_ingles(target_lead.city) else "es"
     email_body = gemini.generate_email_for_lead(
         lead_name=target_lead.contact_name,
         business_name=target_lead.business_name,
         industry=target_lead.industry,
         specific_note=target_lead.notes or "",
         template="pymes" if "pyme" in industry.lower() else "marketing",
+        idioma=idioma,
     )
+
+    subject = EMAIL_SUBJECT_EN if idioma == "en" else "💾 Developer Freelance - Desarrollo Web"
+    html_body = None
+    if idioma == "en":
+        print(f"Idioma detectado: inglés ({target_lead.city})")
+        # html_body con el link real a "portfolio" - GmailService lo
+        # prioriza sobre `body` (que queda como fallback en texto plano).
+        html_body = gemini.generate_email_for_lead(
+            lead_name=target_lead.contact_name,
+            business_name=target_lead.business_name,
+            industry=target_lead.industry,
+            idioma="en",
+            formato="html",
+        )
 
     email = Email(
         to=target_lead.email,
-        subject="💾 Developer Freelance - Desarrollo Web",
+        subject=subject,
         body=email_body,
+        html_body=html_body,
     )
 
     if dry_run:
@@ -142,9 +180,13 @@ async def send_one(dry_run: bool = False) -> bool:
 
 
 async def sleep_interruptible(total_sec: float):
+    global STOP
     waited = 0.0
     step = min(5.0, total_sec)
     while waited < total_sec and not STOP:
+        if os.path.exists(STOP_FILE):
+            STOP = True
+            break
         chunk = min(step, total_sec - waited)
         await asyncio.sleep(chunk)
         waited += chunk
@@ -153,6 +195,9 @@ async def sleep_interruptible(total_sec: float):
 async def main() -> int:
     global STOP
     args = parse_args()
+
+    if os.path.exists(STOP_FILE):
+        os.remove(STOP_FILE)
 
     interval_sec = args.interval * 60 if args.unit == "m" else args.interval
     if interval_sec <= 0:
@@ -187,28 +232,35 @@ async def main() -> int:
     iteration = 0
 
     while not STOP:
+        if os.path.exists(STOP_FILE):
+            print("STOP_send.loop encontrado, terminando.")
+            break
+
         iteration += 1
         print(f"Iteracion #{iteration} - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
-        failed = False
-        try:
-            ok = await send_one(dry_run=args.dry_run)
-        except Exception as e:
-            print(f"Error en iteracion #{iteration}: {e} - reintento en proximo ciclo.")
-            import traceback
-            traceback.print_exc()
-            ok = False
-            failed = True
+        if not _dentro_de_horario_laboral():
+            print("Fuera de horario laboral (Lun-Vie 7-18hs Argentina) - no se envía nada, se reintenta en el próximo ciclo.")
+        else:
+            failed = False
+            try:
+                ok = await send_one(dry_run=args.dry_run)
+            except Exception as e:
+                print(f"Error en iteracion #{iteration}: {e} - reintento en proximo ciclo.")
+                import traceback
+                traceback.print_exc()
+                ok = False
+                failed = True
 
-        if ok:
-            sent += 1
-        elif not failed:
-            print("No quedan leads pendientes. Fin del loop.")
-            break
+            if ok:
+                sent += 1
+            elif not failed:
+                print("No quedan leads pendientes. Fin del loop.")
+                break
 
-        if args.max_sends and sent >= args.max_sends:
-            print(f"Limite alcanzado ({sent} envios). Fin del loop.")
-            break
+            if args.max_sends and sent >= args.max_sends:
+                print(f"Limite alcanzado ({sent} envios). Fin del loop.")
+                break
 
         if STOP:
             break

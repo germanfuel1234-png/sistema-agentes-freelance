@@ -4,6 +4,12 @@ FROM python:3.12-slim
 
 RUN pip install --no-cache-dir fastapi "uvicorn[standard]" httpx python-multipart
 
+# Mismo motivo que en el runner: sin esto queda en UTC, desfasado 3hs
+# contra la hora de Argentina que usa todo lo demás.
+ENV TZ=America/Argentina/Buenos_Aires
+RUN apt-get update && apt-get install -y --no-install-recommends tzdata \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 COPY n8n/dashboard/app.py /app/app.py
 

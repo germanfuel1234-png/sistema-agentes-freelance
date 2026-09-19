@@ -33,16 +33,30 @@ def main():
     stop = os.path.join(os.path.dirname(__file__), "STOP.loop")
     if os.path.exists(stop):
         os.remove(stop)
+
+    from core.heartbeat import reportar_heartbeat
+    try:
+        from core.sheets_client import SheetsClient
+        sheets = SheetsClient(credentials_file="credentials.json")
+    except Exception as e:
+        print(f"⚠️  No se pudo iniciar SheetsClient para heartbeat: {e}")
+        sheets = None
+
     print("LOOP intervalo=%dmin por-ciclo=%d" % (a.intervalo, a.por_ciclo))
     n, idx = 0, 0
     while True:
         n += 1
         print("===== CICLO %d =====" % n)
         try:
-            print("CICLO %d ok=%s" % (n, ciclo(a.por_ciclo, idx)))
+            resultado_ok = ciclo(a.por_ciclo, idx)
+            print("CICLO %d ok=%s" % (n, resultado_ok))
+            if sheets:
+                reportar_heartbeat(sheets, "loop_caza", detalle=f"ciclo {n}, ok={resultado_ok}")
         except Exception as e:
             print("CICLO %d ERROR: %s" % (n, e))
             traceback.print_exc()
+            if sheets:
+                reportar_heartbeat(sheets, "loop_caza", detalle=f"ciclo {n}, ERROR: {e}")
         idx = (idx + 4) % len(_cargar_queries())
         if a.una_vez:
             break

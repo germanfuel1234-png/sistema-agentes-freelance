@@ -56,3 +56,10 @@ package-lock.json
 # Salidas generadas por el generador de presupuestos (se regeneran solas)
 lighthouse_reports/
 presupuestos_generados/
+
+# Carpetas locales de clientes confirmados (copias de HTML/PDF, se recrean)
+clientes/
+
+# Sesion de LinkedIn (cookies de login) - tan sensible como credentials.json
+linkedin_session.json
+STOP_linkedin.loop

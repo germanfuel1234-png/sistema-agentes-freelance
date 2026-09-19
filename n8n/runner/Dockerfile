@@ -8,12 +8,17 @@
 FROM node:20-bookworm-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 python3-pip python3-venv chromium \
+    python3 python3-pip python3-venv chromium tzdata \
     && rm -rf /var/lib/apt/lists/*
 
 # Lighthouse (agente_presupuesto_seo.py) busca un Chrome real para
 # lanzar - le apuntamos al Chromium instalado por apt arriba.
 ENV CHROME_PATH=/usr/bin/chromium
+
+# Sin esto el contenedor queda en UTC mientras todo lo demás (Sheets,
+# heartbeats de los scripts en el host, fechas de cobertura) usa hora de
+# Argentina - un desfasaje de 3hs que rompe comparaciones de fecha/hora.
+ENV TZ=America/Argentina/Buenos_Aires
 
 WORKDIR /app
 
