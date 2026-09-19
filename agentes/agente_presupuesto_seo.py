@@ -277,14 +277,37 @@ def generar_presupuesto(cliente: str, url: str, estrategia: str) -> Path:
     )
 
     hoy = datetime.now()
+    estrategia_label = "Mobile" if estrategia == "mobile" else "Desktop"
+    seccion_auditoria_html = f"""<section>
+  <div class="wrap">
+    <h2>Resultado de la auditoría</h2>
+    <p class="section-lead">Medido con Google Lighthouse (Google PageSpeed / Chrome DevTools), la misma herramienta que usa Google para evaluar la calidad técnica de un sitio. Estrategia: {estrategia_label}.</p>
+    <div class="score-row">
+      {construir_score_chips(scores)}
+    </div>
+  </div>
+</section>"""
     reemplazos = {
         "{{TITULO}}": f"Presupuesto — Auditoría SEO {cliente}",
         "{{TITULO_H1}}": "Auditoría SEO y correcciones",
+        "{{EYEBROW}}": "PROPUESTA TÉCNICA · AUDITORÍA SEO Y PERFORMANCE",
+        "{{HERO_SUB}}": "Auditoría automatizada (Google Lighthouse) del sitio, alcance de trabajo y presupuesto para resolver los problemas detectados.",
         "{{CLIENTE}}": cliente,
         "{{SITIO}}": url,
         "{{FECHA}}": hoy.strftime("%B %Y").capitalize(),
         "{{ANIO}}": str(hoy.year),
-        "{{ESTRATEGIA}}": "Mobile" if estrategia == "mobile" else "Desktop",
+        "{{ESTRATEGIA}}": estrategia_label,
+        "{{SECCION_AUDITORIA_HTML}}": seccion_auditoria_html,
+        "{{TITULO_PROBLEMAS}}": "Problemas detectados",
+        "{{LEAD_PROBLEMAS}}": f"{len(problemas)} puntos relevados automáticamente sobre {url}, ordenados por impacto.",
+        "{{LEAD_COMO_RESOLVEMOS}}": "Orden de trabajo propuesto para corregir lo detectado.",
+        "{{LEAD_PRESUPUESTO}}": "Valores en pesos argentinos, sin IVA. Estimados a partir de la cantidad y severidad de los problemas encontrados — sujetos a confirmación tras relevar el acceso al sitio.",
+        "{{ALCANCE_01_NOMBRE}}": "Corrección puntual",
+        "{{ALCANCE_01_DESC}}": "Resuelve los problemas críticos detectados en la auditoría.",
+        "{{ALCANCE_02_NOMBRE}}": "Optimización integral",
+        "{{ALCANCE_02_DESC}}": "Todo lo del alcance puntual, más una pasada completa de SEO técnico y performance para acercar el sitio a un score alto en Lighthouse.",
+        "{{NOTA_PRECIO}}": "* Precios estimativos según hallazgos automatizados de Lighthouse. Tiempo estimado de entrega: 1-3 semanas según alcance.",
+        "{{FOOTER_NOTA}}": "Auditoría generada automáticamente con Lighthouse",
         "{{SCORE_CHIPS_HTML}}": construir_score_chips(scores),
         "{{CANTIDAD_PROBLEMAS}}": str(len(problemas)),
         "{{PROBLEMS_HTML}}": problems_html,
@@ -325,14 +348,84 @@ def generar_presupuesto(cliente: str, url: str, estrategia: str) -> Path:
     return salida
 
 
+def generar_presupuesto_brief(cliente: str, brief: str, precio_base: int, precio_total: int, sitio: str = "") -> Path:
+    """Genera un presupuesto SIN correr Lighthouse - para cuando no hay URL
+    (sitio nuevo, o el cliente prefiere no compartir el link todavía). El
+    alcance sale de un brief en texto libre que carga el usuario a mano, no
+    de una auditoría automática - por eso no hay scores ni "problemas
+    detectados", y el precio es el que el usuario define (no se calcula
+    solo a partir de una cantidad de hallazgos, porque acá no hay
+    hallazgos)."""
+    plantilla = PLANTILLA_PATH.read_text(encoding="utf-8")
+
+    parrafos_brief = [p.strip() for p in brief.strip().split("\n") if p.strip()]
+    brief_html = "\n".join(f'<p class="section-lead">{p}</p>' for p in parrafos_brief) or \
+        '<p class="section-lead">Sin brief cargado.</p>'
+
+    hoy = datetime.now()
+    reemplazos = {
+        "{{TITULO}}": f"Presupuesto — {cliente}",
+        "{{TITULO_H1}}": "Propuesta de desarrollo web",
+        "{{EYEBROW}}": "PROPUESTA TÉCNICA · DESARROLLO A MEDIDA",
+        "{{HERO_SUB}}": "Propuesta de trabajo y presupuesto armados a partir del brief compartido por el cliente.",
+        "{{CLIENTE}}": cliente,
+        "{{SITIO}}": sitio or "A definir",
+        "{{FECHA}}": hoy.strftime("%B %Y").capitalize(),
+        "{{ANIO}}": str(hoy.year),
+        "{{ESTRATEGIA}}": "",
+        "{{SECCION_AUDITORIA_HTML}}": "",  # sin auditoria, no hay scores que mostrar
+        "{{TITULO_PROBLEMAS}}": "Alcance del proyecto",
+        "{{LEAD_PROBLEMAS}}": "Detalle compartido por el cliente para armar esta propuesta.",
+        "{{PROBLEMS_HTML}}": brief_html,
+        "{{LEAD_COMO_RESOLVEMOS}}": "Orden de trabajo propuesto según lo conversado.",
+        "{{STEPS_HTML}}": '<p class="section-lead">El desarrollo se realiza según lo acordado en el brief inicial, con entregas parciales para revisión.</p>',
+        "{{LEAD_PRESUPUESTO}}": "Valores en pesos argentinos, sin IVA. Estimados a partir del brief compartido — sujetos a confirmación tras definir el alcance final.",
+        "{{ALCANCE_01_NOMBRE}}": "Propuesta base",
+        "{{ALCANCE_01_DESC}}": "Alcance definido según el brief compartido.",
+        "{{PRECIO_BASE}}": formatear_ars(precio_base),
+        "{{PLAN_BASE_ITEMS_HTML}}": "<li>Según brief compartido</li>",
+        "{{ALCANCE_02_NOMBRE}}": "Propuesta completa",
+        "{{ALCANCE_02_DESC}}": "Incluye el alcance base más mejoras y extras adicionales a definir.",
+        "{{PRECIO_TOTAL}}": formatear_ars(precio_total),
+        "{{PLAN_TOTAL_ITEMS_HTML}}": "<li>Todo lo incluido en la propuesta base</li>\n          <li>Ajustes y revisiones adicionales</li>",
+        "{{NOTA_PRECIO}}": "* Precios estimativos según el brief compartido, sin auditoría técnica del sitio. Tiempo estimado de entrega: a definir según alcance.",
+        "{{FOOTER_NOTA}}": "Propuesta armada a partir del brief compartido por el cliente",
+        "{{SCORE_CHIPS_HTML}}": "",
+        "{{CANTIDAD_PROBLEMAS}}": "",
+    }
+
+    html_final = plantilla
+    for token, valor in reemplazos.items():
+        html_final = html_final.replace(token, valor)
+
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    salida = OUTPUT_DIR / f"presupuesto-{slugify(cliente)}.html"
+    salida.write_text(html_final, encoding="utf-8")
+
+    print(f"\nArchivo generado (sin auditoría, desde brief): {salida}")
+
+    resultado = {
+        "cliente": cliente, "url": sitio, "precio_base": precio_base,
+        "precio_total": precio_total, "archivo_html": str(salida),
+    }
+    print("RESULTADO_JSON:" + json.dumps(resultado))
+    return salida
+
+
 def main():
-    parser = argparse.ArgumentParser(description="Genera un presupuesto de corrección SEO en base a una auditoría real de Lighthouse.")
+    parser = argparse.ArgumentParser(description="Genera un presupuesto de corrección SEO en base a una auditoría real de Lighthouse (o, con --brief, sin auditoría).")
     parser.add_argument("--cliente", required=True, help="Nombre del cliente/negocio, ej: 'Alkanos'")
-    parser.add_argument("--url", required=True, help="URL completa del sitio a auditar, ej: https://alkanos.com.ar")
+    parser.add_argument("--url", default="", help="URL completa del sitio a auditar, ej: https://alkanos.com.ar (opcional si se usa --brief)")
     parser.add_argument("--estrategia", choices=["mobile", "desktop"], default="mobile", help="Estrategia de auditoría (default: mobile)")
+    parser.add_argument("--brief", default="", help="Texto libre con el alcance del proyecto - si se pasa, NO corre Lighthouse (para cuando no hay URL)")
+    parser.add_argument("--precio-base", type=int, default=0, help="Precio base en ARS (requerido con --brief)")
+    parser.add_argument("--precio-total", type=int, default=0, help="Precio total en ARS (requerido con --brief)")
     args = parser.parse_args()
 
-    generar_presupuesto(args.cliente, args.url, args.estrategia)
+    if args.brief:
+        generar_presupuesto_brief(args.cliente, args.brief, args.precio_base, args.precio_total, sitio=args.url)
+    else:
+        generar_presupuesto(args.cliente, args.url, args.estrategia)
 
 
 if __name__ == "__main__":

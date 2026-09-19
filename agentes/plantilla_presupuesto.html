@@ -595,9 +595,9 @@ SCRIPT PARA CARGAR Y CONTROLAR TUBOS 3D
 
   <div class="hero-content">
     <div class="wrap">
-      <div class="eyebrow">PROPUESTA TÉCNICA · AUDITORÍA SEO Y PERFORMANCE</div>
+      <div class="eyebrow">{{EYEBROW}}</div>
       <h1>{{TITULO_H1}}</h1>
-      <p class="hero-sub">Auditoría automatizada (Google Lighthouse) del sitio, alcance de trabajo y presupuesto para resolver los problemas detectados.</p>
+      <p class="hero-sub">{{HERO_SUB}}</p>
       <div class="hero-meta">
         <span><strong>Cliente:</strong> {{CLIENTE}}</span>
         <span><strong>Sitio:</strong> {{SITIO}}</span>
@@ -607,20 +607,12 @@ SCRIPT PARA CARGAR Y CONTROLAR TUBOS 3D
   </div>
 </div>
 
-<section>
-  <div class="wrap">
-    <h2>Resultado de la auditoría</h2>
-    <p class="section-lead">Medido con Google Lighthouse (Google PageSpeed / Chrome DevTools), la misma herramienta que usa Google para evaluar la calidad técnica de un sitio. Estrategia: {{ESTRATEGIA}}.</p>
-    <div class="score-row">
-      {{SCORE_CHIPS_HTML}}
-    </div>
-  </div>
-</section>
+{{SECCION_AUDITORIA_HTML}}
 
 <section>
   <div class="wrap">
-    <h2>Problemas detectados</h2>
-    <p class="section-lead">{{CANTIDAD_PROBLEMAS}} puntos relevados automáticamente sobre {{SITIO}}, ordenados por impacto.</p>
+    <h2>{{TITULO_PROBLEMAS}}</h2>
+    <p class="section-lead">{{LEAD_PROBLEMAS}}</p>
     {{PROBLEMS_HTML}}
   </div>
 </section>
@@ -628,7 +620,7 @@ SCRIPT PARA CARGAR Y CONTROLAR TUBOS 3D
 <section>
   <div class="wrap">
     <h2>Cómo lo resolvemos</h2>
-    <p class="section-lead">Orden de trabajo propuesto para corregir lo detectado.</p>
+    <p class="section-lead">{{LEAD_COMO_RESOLVEMOS}}</p>
     {{STEPS_HTML}}
   </div>
 </section>
@@ -636,13 +628,13 @@ SCRIPT PARA CARGAR Y CONTROLAR TUBOS 3D
 <section>
   <div class="wrap">
     <h2>Presupuesto</h2>
-    <p class="section-lead">Valores en pesos argentinos, sin IVA. Estimados a partir de la cantidad y severidad de los problemas encontrados — sujetos a confirmación tras relevar el acceso al sitio.</p>
+    <p class="section-lead">{{LEAD_PRESUPUESTO}}</p>
 
     <div class="plans">
       <div class="plan">
         <div class="plan-label">// ALCANCE 01</div>
-        <div class="plan-name">Corrección puntual</div>
-        <div class="plan-desc">Resuelve los problemas críticos detectados en la auditoría.</div>
+        <div class="plan-name">{{ALCANCE_01_NOMBRE}}</div>
+        <div class="plan-desc">{{ALCANCE_01_DESC}}</div>
         <div class="plan-price">{{PRECIO_BASE}}</div>
         <div class="plan-price-note">pago único · sin IVA</div>
         <ul class="plan-items">
@@ -651,8 +643,8 @@ SCRIPT PARA CARGAR Y CONTROLAR TUBOS 3D
       </div>
       <div class="plan featured">
         <div class="plan-label">// ALCANCE 02</div>
-        <div class="plan-name">Optimización integral</div>
-        <div class="plan-desc">Todo lo del alcance puntual, más una pasada completa de SEO técnico y performance para acercar el sitio a un score alto en Lighthouse.</div>
+        <div class="plan-name">{{ALCANCE_02_NOMBRE}}</div>
+        <div class="plan-desc">{{ALCANCE_02_DESC}}</div>
         <div class="plan-price">{{PRECIO_TOTAL}}</div>
         <div class="plan-price-note">pago único · sin IVA</div>
         <ul class="plan-items">
@@ -660,7 +652,7 @@ SCRIPT PARA CARGAR Y CONTROLAR TUBOS 3D
         </ul>
       </div>
     </div>
-    <p class="price-note">* Precios estimativos según hallazgos automatizados de Lighthouse. Tiempo estimado de entrega: 1-3 semanas según alcance.</p>
+    <p class="price-note">{{NOTA_PRECIO}}</p>
   </div>
 </section>
 
@@ -669,7 +661,7 @@ SCRIPT PARA CARGAR Y CONTROLAR TUBOS 3D
     <h2>Qué necesitamos para arrancar</h2>
     <div class="next-list">
       <div class="next-item"><span class="dot"></span><span><strong>Acceso al hosting/CMS</strong> — o invitar a un colaborador si prefieren no compartir credenciales directas.</span></div>
-      <div class="next-item"><span class="dot"></span><span><strong>Confirmación del alcance elegido</strong> — corrección puntual u optimización integral.</span></div>
+      <div class="next-item"><span class="dot"></span><span><strong>Confirmación del alcance elegido</strong> — {{ALCANCE_01_NOMBRE}} u {{ALCANCE_02_NOMBRE}}.</span></div>
       <div class="next-item"><span class="dot"></span><span><strong>Aprobación del presupuesto</strong> — para reservar la ventana de trabajo.</span></div>
     </div>
   </div>
@@ -680,7 +672,7 @@ SCRIPT PARA CARGAR Y CONTROLAR TUBOS 3D
     <span class="footer__copy">
       © {{ANIO}} Rodríguez Germán ·
       <span class="accent">Web Designer &amp; Developer</span> ·
-      <span class="dim">Auditoría generada automáticamente con Lighthouse</span>
+      <span class="dim">{{FOOTER_NOTA}}</span>
     </span>
 
     <div class="footer__socials">
